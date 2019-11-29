@@ -48,7 +48,8 @@ func runDownloadCmd(cmd *cobra.Command, args []string) {
 			if err != nil {
 				return err
 			}
-			logrus.Infof("Extension %s download to %q", name, extDir)
+
+			logrus.Infof("Extension %s downloaded to %q", name, extDir)
 			return nil
 		})
 	}

@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/text/encoding/ianaindex"
 	"golang.org/x/text/transform"
-	"golang.org/x/xerrors"
 )
 
 func LoadPackageXMLFromFile(xmlpath string) (Package, error) {
@@ -109,7 +109,7 @@ func (s *Stability) UnmarshalText(text []byte) error {
 	case string(Stable):
 		*s = Stable
 	default:
-		return xerrors.Errorf("unsupported stability %q", string(text))
+		logrus.Warnf("unsupported stability %q", string(text))
 	}
 	return nil
 }
