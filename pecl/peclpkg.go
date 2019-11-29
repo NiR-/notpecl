@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"io"
 	"io/ioutil"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/text/encoding/ianaindex"
@@ -46,8 +45,8 @@ type Package struct {
 	Name        string `xml:"name"`
 	Summary     string `xml:"summary"`
 	Description string `xml:"description"`
-	PublishDate *Date  `xml:"date"`
-	PublishTime *Time  `xml:"time"`
+	PublishDate string `xml:"date"`
+	PublishTime string `xml:"time"`
 	User        string `xml:"user"`
 	Email       string `xml:"email"`
 	// Authors     struct {
@@ -69,8 +68,8 @@ type Changelog struct {
 }
 
 type Release struct {
-	Date      *Date            `xml:"date"`
-	Time      *Time            `xml:"time"`
+	Date      string           `xml:"date"`
+	Time      string           `xml:"time"`
 	Version   Version          `xml:"version"`
 	Stability PackageStability `xml:"stability"`
 	Notes     string           `xml:"notes"`
@@ -162,55 +161,4 @@ type ConfigureOption struct {
 	Name    string `xml:"name,attr"`
 	Default string `xml:"default,attr"`
 	Prompt  string `xml:"prompt,attr"`
-}
-
-type Date struct {
-	date time.Time
-}
-
-func NewDate(year int, month time.Month, day int) *Date {
-	return &Date{
-		date: time.Date(year, month, day, 0, 0, 0, 0, time.UTC),
-	}
-}
-
-func (d *Date) UnmarshalText(text []byte) error {
-	dt, err := time.Parse("2006-01-02", string(text))
-	if err != nil {
-		return err
-	}
-	d.date = dt
-	return nil
-}
-
-func (d Date) CombineWithTime(t Time) time.Time {
-	return time.Date(
-		d.date.Year(),
-		d.date.Month(),
-		d.date.Day(),
-		t.time.Hour(),
-		t.time.Minute(),
-		t.time.Second(),
-		t.time.Nanosecond(),
-		time.UTC,
-	)
-}
-
-type Time struct {
-	time time.Time
-}
-
-func NewTime(hour, minute, second int) *Time {
-	return &Time{
-		time: time.Date(0, 0, 0, hour, minute, second, 0, time.UTC),
-	}
-}
-
-func (t *Time) UnmarshalText(text []byte) error {
-	dt, err := time.Parse("15:04:05", string(text))
-	if err != nil {
-		return err
-	}
-	t.time = dt
-	return nil
 }

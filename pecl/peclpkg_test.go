@@ -21,8 +21,8 @@ func TestLoadPackageXMLFromFile(t *testing.T) {
 				Name:        "redis",
 				Summary:     "PHP extension for interfacing with Redis",
 				Description: "This extension provides an API for communicating with Redis servers.",
-				PublishDate: pecl.NewDate(2019, 11, 11),
-				PublishTime: pecl.NewTime(07, 36, 41),
+				PublishDate: "2019-11-11",
+				PublishTime: "07:36:41",
 				Version: pecl.Version{
 					Release: "5.1.1",
 					API:     "5.1.0",
@@ -73,7 +73,7 @@ func TestLoadPackageXMLFromFile(t *testing.T) {
 								Release: "5.1.1",
 								API:     "5.1.0",
 							},
-							Date: pecl.NewDate(2019, 11, 11),
+							Date: "2019-11-11",
 							Notes: `
 phpredis 5.1.1
 
