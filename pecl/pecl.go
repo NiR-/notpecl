@@ -23,7 +23,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func NewPeclBackend(cacheDir, downloadDir, installDir string) (PeclBackend, error) {
+func NewPeclBackend(downloadDir, installDir string) (PeclBackend, error) {
 	_, err := os.Stat(downloadDir)
 	if os.IsNotExist(err) {
 		return PeclBackend{}, xerrors.Errorf("download dir %q does not exist", downloadDir)
@@ -35,22 +35,22 @@ func NewPeclBackend(cacheDir, downloadDir, installDir string) (PeclBackend, erro
 
 	b := PeclBackend{
 		ui:            ui.NewNonInteractiveUI(),
-		cacheDir:      cacheDir,
 		downloadDir:   downloadDir,
 		installDir:    installDir,
 		peclBaseURI:   "https://pecl.php.net",
+		extIndexURI:   "https://storage.googleapis.com/notpecl/extensions.json",
 		httpTransport: &http.Transport{},
 	}
 	return b, nil
 }
 
 type PeclBackend struct {
-	ui ui.UI
-	// cacheDir is the folder where pecl cache is kept
-	cacheDir      string
+	ui            ui.UI
+	extIndex      map[string][]string
 	downloadDir   string
 	installDir    string
 	peclBaseURI   string
+	extIndexURI   string
 	httpTransport *http.Transport
 }
 
@@ -63,6 +63,12 @@ func (b PeclBackend) WithUI(ui ui.UI) PeclBackend {
 func (b PeclBackend) WithBaseURI(baseURI string) PeclBackend {
 	nb := b
 	nb.peclBaseURI = baseURI
+	return nb
+}
+
+func (b PeclBackend) WithExtensionIndexURI(uri string) PeclBackend {
+	nb := b
+	nb.extIndexURI = uri
 	return nb
 }
 
@@ -117,7 +123,49 @@ func (b PeclBackend) ResolveConstraint(
 	name,
 	constraint string,
 ) (string, error) {
-	return constraint, nil
+	if len(b.extIndex) == 0 {
+		var err error
+		b.extIndex, err = b.loadExtensionIndex()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	extVersions, ok := b.extIndex[name]
+	if !ok {
+		return "", xerrors.Errorf("could not find extension %q", name)
+	}
+
+	c := version.NewConstrainGroupFromString(constraint)
+	for _, ver := range extVersions {
+		if c.Match(ver) {
+			return ver, nil
+		}
+	}
+
+	return "", xerrors.Errorf("could not find a version of %q statisfying constraint %q", name, constraint)
+}
+
+func (b PeclBackend) loadExtensionIndex() (map[string][]string, error) {
+	var index map[string][]string
+
+	client := http.Client{Transport: b.httpTransport}
+	resp, err := client.Get(b.extIndexURI)
+	if err != nil {
+		return index, xerrors.Errorf("could not download extension index: %v", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return index, xerrors.Errorf("could not read extension index: %v", err)
+	}
+
+	if err := json.Unmarshal(raw, &index); err != nil {
+		return index, xerrors.Errorf("could not unmarshal extension index: %v", err)
+	}
+
+	return index, nil
 }
 
 func (b PeclBackend) Download(
@@ -265,7 +313,7 @@ func (b PeclBackend) Build(
 	if err := checkPackageDependencies(pkg); err != nil {
 		return err
 	}
-	if err := askForMissingArgs(b.ui, pkg, &opts); err != nil {
+	if err := askAboutMissingArgs(b.ui, pkg, &opts); err != nil {
 		return err
 	}
 
@@ -445,7 +493,7 @@ func isExtensionEnabled(name string) (bool, error) {
 	return val, nil
 }
 
-func askForMissingArgs(u ui.UI, pkg Package, opts *BuildOpts) error {
+func askAboutMissingArgs(u ui.UI, pkg Package, opts *BuildOpts) error {
 	currentFlags := map[string]struct{}{}
 	for _, flag := range opts.ConfigureArgs {
 		segments := strings.SplitN(flag, "=", 2)

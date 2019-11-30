@@ -28,26 +28,18 @@ func initDownloadZip1155TC(
 	httpT *http.Transport,
 	baseURI string,
 ) peclDownloadTC {
-	cacheDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	downloadDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cleanup := func() {
-		if err := os.RemoveAll(cacheDir); err != nil {
-			t.Fatal(err)
-		}
 		if err := os.RemoveAll(downloadDir); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	b, err := pecl.NewPeclBackend(cacheDir, downloadDir, downloadDir)
+	b, err := pecl.NewPeclBackend(downloadDir, downloadDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +65,7 @@ func TestPeclDownload(t *testing.T) {
 		t.Run(tcname, func(t *testing.T) {
 			t.Parallel()
 
-			socketPath, srvStop := startPeclServer(
+			socketPath, srvStop := startHTTPServer(
 				t,
 				"/get/zip-1.15.5.tgz",
 				serveExtTgzHandler(t, "testdata/pecl.php.net/zip-1.15.5.tgz"),
@@ -142,11 +134,6 @@ func initInstallZip1155TC(
 	httpT *http.Transport,
 	baseURI string,
 ) peclInstallTC {
-	cacheDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	downloadDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -158,9 +145,6 @@ func initInstallZip1155TC(
 	}
 
 	cleanup := func() {
-		if err := os.RemoveAll(cacheDir); err != nil {
-			t.Fatal(err)
-		}
 		if err := os.RemoveAll(downloadDir); err != nil {
 			t.Fatal(err)
 		}
@@ -169,7 +153,7 @@ func initInstallZip1155TC(
 		}
 	}
 
-	b, err := pecl.NewPeclBackend(cacheDir, downloadDir, downloadDir)
+	b, err := pecl.NewPeclBackend(downloadDir, downloadDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +199,7 @@ func TestPeclInstall(t *testing.T) {
 		t.Run(tcname, func(t *testing.T) {
 			t.Parallel()
 
-			socketPath, srvStop := startPeclServer(
+			socketPath, srvStop := startHTTPServer(
 				t,
 				"/get/redis-5.1.1.tgz",
 				serveExtTgzHandler(t, "testdata/pecl.php.net/redis-5.1.1.tgz"),
@@ -254,13 +238,13 @@ func TestPeclInstall(t *testing.T) {
 	}
 }
 
-func startPeclServer(
+func startHTTPServer(
 	t *testing.T,
 	route string,
-	handler func(http.ResponseWriter, *http.Request),
+	handler http.Handler,
 ) (string, func()) {
 	mux := http.NewServeMux()
-	mux.HandleFunc(route, handler)
+	mux.Handle(route, handler)
 
 	socketPath := path.Join(os.TempDir(), random()+".sock")
 	unixListener, err := net.Listen("unix", socketPath)
@@ -289,15 +273,77 @@ func random() string {
 	return strconv.Itoa(int(1e9 + r%1e9))[1:]
 }
 
-func serveExtTgzHandler(t *testing.T, fullpath string) func(http.ResponseWriter, *http.Request) {
+func serveExtTgzHandler(t *testing.T, fullpath string) http.Handler {
 	buf, err := ioutil.ReadFile(fullpath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Length", strconv.Itoa(len(buf)))
 		w.WriteHeader(200)
 		w.Write(buf)
+	})
+}
+
+func TestPeclResolveConstraint(t *testing.T) {
+	testcases := map[string]struct {
+		name        string
+		constraint  string
+		expected    string
+		expectedErr error
+	}{
+		"successfully resolve redis version": {
+			name:       "redis",
+			constraint: "~5.1.0",
+			expected:   "5.1.1",
+		},
+		"fail to resolve unknown extension": {
+			name:        "unknownext",
+			constraint:  ">=1.2.3",
+			expectedErr: xerrors.New("could not find extension \"unknownext\""),
+		},
+	}
+
+	for tcname := range testcases {
+		tc := testcases[tcname]
+
+		t.Run(tcname, func(t *testing.T) {
+			t.Parallel()
+
+			socketPath, srvStop := startHTTPServer(t, "/",
+				http.FileServer(http.Dir("testdata")))
+			defer srvStop()
+
+			unixT := &httpunix.Transport{}
+			unixT.RegisterLocation("notpecl", socketPath)
+			httpT := &http.Transport{}
+			httpT.RegisterProtocol(httpunix.Scheme, unixT)
+
+			cwd, _ := os.Getwd()
+			b, err := pecl.NewPeclBackend(cwd, cwd)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			b = b.WithHTTPTransport(httpT)
+			b = b.WithExtensionIndexURI("http+unix://notpecl/extensions.json")
+
+			ctx := context.TODO()
+			resolved, err := b.ResolveConstraint(ctx, tc.name, tc.constraint)
+			if tc.expectedErr != nil {
+				if err == nil || tc.expectedErr.Error() != err.Error() {
+					t.Fatalf("Expected error: %v\nGot: %v", tc.expectedErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if resolved != tc.expected {
+				t.Fatalf("Expected: %s\nGot: %s", tc.expected, resolved)
+			}
+		})
 	}
 }
