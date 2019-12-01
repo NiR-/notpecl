@@ -4,8 +4,7 @@ import (
 	"context"
 	"os"
 	"path"
-
-	"github.com/NiR-/notpecl/pecl"
+	"github.com/NiR-/notpecl/backends"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +30,8 @@ func NewBuildCmd() *cobra.Command {
 }
 
 func runBuildCmd(cmd *cobra.Command, args []string) {
-	b := initPeclBackend()
+	np := backends.NewNotPeclBackend()
+	p := initPeclBackend(np)
 	ctx := context.TODO()
 
 	extDir := cwd()
@@ -52,7 +52,7 @@ func runBuildCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	opts := pecl.BuildOpts{
+	opts := backends.BuildOpts{
 		ExtensionDir:   extDir,
 		PackageXmlPath: buildFlags.xml,
 		ConfigureArgs:  []string{},
@@ -60,7 +60,7 @@ func runBuildCmd(cmd *cobra.Command, args []string) {
 	}
 	opts.ConfigureArgs = args
 
-	if err := b.Build(ctx, opts); err != nil {
+	if err := p.Build(ctx, opts); err != nil {
 		logrus.Fatal(err)
 	}
 }

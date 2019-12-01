@@ -1,15 +1,15 @@
-package pecl_test
+package backends_test
 
 import (
 	"testing"
 
-	"github.com/NiR-/notpecl/pecl"
+	"github.com/NiR-/notpecl/backends"
 	"github.com/go-test/deep"
 )
 
 type loadTC struct {
 	file        string
-	expected    pecl.Package
+	expected    backends.Package
 	expectedErr error
 }
 
@@ -17,34 +17,34 @@ func TestLoadPackageXMLFromFile(t *testing.T) {
 	testcases := map[string]loadTC{
 		"successfully load package.xml for redis ext": {
 			file: "testdata/package-redis.xml",
-			expected: pecl.Package{
+			expected: backends.Package{
 				Name:        "redis",
 				Summary:     "PHP extension for interfacing with Redis",
 				Description: "This extension provides an API for communicating with Redis servers.",
 				PublishDate: "2019-11-11",
 				PublishTime: "07:36:41",
-				Version: pecl.Version{
+				Version: backends.Version{
 					Release: "5.1.1",
 					API:     "5.1.0",
 				},
-				Stability: pecl.PackageStability{
-					Release: pecl.Stable,
-					API:     pecl.Stable,
+				Stability: backends.PackageStability{
+					Release: backends.Stable,
+					API:     backends.Stable,
 				},
-				License: pecl.License{
+				License: backends.License{
 					Name: "PHP",
 					URI:  "http://www.php.net/license",
 				},
-				Dependencies: pecl.Dependencies{
-					Required: pecl.RequiredDependencies{
-						PHP: pecl.PHPConstraint{
+				Dependencies: backends.Dependencies{
+					Required: backends.RequiredDependencies{
+						PHP: backends.PHPConstraint{
 							Min: "7.0.0",
 							Max: "7.9.99",
 						},
 					},
 				},
-				ExtSrcRelease: pecl.ExtSrcRelease{
-					ConfigureOptions: []pecl.ConfigureOption{
+				ExtSrcRelease: backends.ExtSrcRelease{
+					ConfigureOptions: []backends.ConfigureOption{
 						{
 							Name:    "enable-redis-igbinary",
 							Default: "no",
@@ -62,14 +62,14 @@ func TestLoadPackageXMLFromFile(t *testing.T) {
 						},
 					},
 				},
-				Changelog: pecl.Changelog{
-					Releases: []pecl.Release{
+				Changelog: backends.Changelog{
+					Releases: []backends.Release{
 						{
-							Stability: pecl.PackageStability{
-								Release: pecl.Stable,
-								API:     pecl.Stable,
+							Stability: backends.PackageStability{
+								Release: backends.Stable,
+								API:     backends.Stable,
 							},
-							Version: pecl.Version{
+							Version: backends.Version{
 								Release: "5.1.1",
 								API:     "5.1.0",
 							},
@@ -90,7 +90,7 @@ This release contains only bugfix for unix-socket connection.
 	}
 
 	for _, tc := range testcases {
-		out, err := pecl.LoadPackageXMLFromFile(tc.file)
+		out, err := backends.LoadPackageXMLFromFile(tc.file)
 		if tc.expectedErr != nil {
 			if err == nil {
 				t.Fatalf("Expected error: %v\nGot: <nil>", tc.expectedErr)

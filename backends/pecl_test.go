@@ -1,4 +1,4 @@
-package pecl_test
+package backends_test
 
 import (
 	"context"
@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NiR-/notpecl/pecl"
+	"github.com/NiR-/notpecl/backends"
 	"github.com/tv42/httpunix"
 	"golang.org/x/xerrors"
 )
 
 type peclDownloadTC struct {
-	backend     pecl.PeclBackend
+	backend     backends.PeclBackend
 	downloadDir string
 	expectedErr error
 	cleanup     func()
@@ -39,7 +39,8 @@ func initDownloadZip1155TC(
 		}
 	}
 
-	b, err := pecl.NewPeclBackend(downloadDir, downloadDir)
+	np := backends.NewNotPeclBackend()
+	b, err := backends.NewPeclBackend(np, downloadDir, downloadDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +124,7 @@ func TestPeclDownload(t *testing.T) {
 }
 
 type peclInstallTC struct {
-	backend       pecl.PeclBackend
+	backend       backends.PeclBackend
 	configureArgs []string
 	expectedErr   error
 	cleanup       func()
@@ -153,7 +154,8 @@ func initInstallZip1155TC(
 		}
 	}
 
-	b, err := pecl.NewPeclBackend(downloadDir, downloadDir)
+	np := backends.NewNotPeclBackend()
+	b, err := backends.NewPeclBackend(np, downloadDir, downloadDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +217,7 @@ func TestPeclInstall(t *testing.T) {
 			defer tc.cleanup()
 
 			ctx := context.TODO()
-			opts := pecl.InstallOpts{
+			opts := backends.InstallOpts{
 				Name:          "redis",
 				Version:       "5.1.1",
 				ConfigureArgs: tc.configureArgs,
@@ -284,66 +286,4 @@ func serveExtTgzHandler(t *testing.T, fullpath string) http.Handler {
 		w.WriteHeader(200)
 		w.Write(buf)
 	})
-}
-
-func TestPeclResolveConstraint(t *testing.T) {
-	testcases := map[string]struct {
-		name        string
-		constraint  string
-		expected    string
-		expectedErr error
-	}{
-		"successfully resolve redis version": {
-			name:       "redis",
-			constraint: "~5.1.0",
-			expected:   "5.1.1",
-		},
-		"fail to resolve unknown extension": {
-			name:        "unknownext",
-			constraint:  ">=1.2.3",
-			expectedErr: xerrors.New("could not find extension \"unknownext\""),
-		},
-	}
-
-	for tcname := range testcases {
-		tc := testcases[tcname]
-
-		t.Run(tcname, func(t *testing.T) {
-			t.Parallel()
-
-			socketPath, srvStop := startHTTPServer(t, "/",
-				http.FileServer(http.Dir("testdata")))
-			defer srvStop()
-
-			unixT := &httpunix.Transport{}
-			unixT.RegisterLocation("notpecl", socketPath)
-			httpT := &http.Transport{}
-			httpT.RegisterProtocol(httpunix.Scheme, unixT)
-
-			cwd, _ := os.Getwd()
-			b, err := pecl.NewPeclBackend(cwd, cwd)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-
-			b = b.WithHTTPTransport(httpT)
-			b = b.WithExtensionIndexURI("http+unix://notpecl/extensions.json")
-
-			ctx := context.TODO()
-			resolved, err := b.ResolveConstraint(ctx, tc.name, tc.constraint)
-			if tc.expectedErr != nil {
-				if err == nil || tc.expectedErr.Error() != err.Error() {
-					t.Fatalf("Expected error: %v\nGot: %v", tc.expectedErr, err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-
-			if resolved != tc.expected {
-				t.Fatalf("Expected: %s\nGot: %s", tc.expected, resolved)
-			}
-		})
-	}
 }

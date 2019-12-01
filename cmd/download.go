@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/NiR-/notpecl/backends"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -22,7 +23,8 @@ func NewDownloadCmd() *cobra.Command {
 }
 
 func runDownloadCmd(cmd *cobra.Command, args []string) {
-	p := initPeclBackend()
+	np := backends.NewNotPeclBackend()
+	p := initPeclBackend(np)
 	eg, ctx := errgroup.WithContext(context.TODO())
 
 	if len(args) == 0 {

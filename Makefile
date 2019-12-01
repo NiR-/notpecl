@@ -9,7 +9,7 @@ endif
 
 .PHONY: build
 build:
-	go build -buildmode pie -ldflags '-w' -o notpecl .
+	go build -buildmode pie -ldflags '-w -s' -o .bin/notpecl .
 
 .PHONY: test
 test:
@@ -18,4 +18,4 @@ test:
 
 .PHONY: gendoc
 gendoc: build
-	./notpecl gendoc --dest ./docs
+	./.bin/notpecl gendoc --dest ./docs

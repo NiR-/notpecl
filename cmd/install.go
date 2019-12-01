@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 	"strings"
-
-	"github.com/NiR-/notpecl/pecl"
+	
+	"github.com/NiR-/notpecl/backends"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +31,8 @@ func NewInstallCmd() *cobra.Command {
 }
 
 func runInstallCmd(cmd *cobra.Command, args []string) {
-	p := initPeclBackend()
+	np := backends.NewNotPeclBackend()
+	p := initPeclBackend(np)
 	ctx := context.TODO()
 
 	for _, arg := range args {
@@ -47,7 +48,7 @@ func runInstallCmd(cmd *cobra.Command, args []string) {
 			log.Fatal(err)
 		}
 
-		opts := pecl.InstallOpts{
+		opts := backends.InstallOpts{
 			Name:          extName,
 			Version:       extVersion,
 			ConfigureArgs: []string{},

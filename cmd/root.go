@@ -6,7 +6,7 @@ import (
 	"path"
 	"runtime"
 
-	"github.com/NiR-/notpecl/pecl"
+	"github.com/NiR-/notpecl/backends"
 	"github.com/NiR-/notpecl/ui"
 	"github.com/mattn/go-isatty"
 	"github.com/sirupsen/logrus"
@@ -40,19 +40,13 @@ func NewRootCmd() *cobra.Command {
 	return root
 }
 
-func initPeclBackend() pecl.PeclBackend {
-	cacheDir, err := findCacheDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func initPeclBackend(np backends.NotPeclBackend) backends.PeclBackend {
 	downloadDir, err := findDownloadDir()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	peclCacheDir := path.Join(cacheDir, "pecl")
-	p, err := pecl.NewPeclBackend(peclCacheDir, downloadDir, "/tmp/notpecl")
+	p, err := backends.NewPeclBackend(np, downloadDir, "/tmp/notpecl")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,18 +57,6 @@ func initPeclBackend() pecl.PeclBackend {
 	}
 
 	return p
-}
-
-func findCacheDir() (string, error) {
-	basepath := os.Getenv("XDG_DATA_HOME")
-	if basepath == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		basepath = path.Join(home, ".local", "share")
-	}
-	return path.Join(basepath, "notpecl"), nil
 }
 
 func findDownloadDir() (string, error) {
