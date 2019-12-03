@@ -42,19 +42,13 @@ func charsetReader(charset string, input io.Reader) (io.Reader, error) {
 }
 
 type Package struct {
-	Name        string `xml:"name"`
-	Summary     string `xml:"summary"`
-	Description string `xml:"description"`
-	PublishDate string `xml:"date"`
-	PublishTime string `xml:"time"`
-	User        string `xml:"user"`
-	Email       string `xml:"email"`
-	// Authors     struct {
-	// 	Leads        []Author `xml:"lead"`
-	// 	Developers   []Author `xml:"developer"`
-	// 	Contributors []Author `xml:"contributors"`
-	// 	Helpers      []Author `xml:"helpers"`
-	// }
+	Name          string           `xml:"name"`
+	Summary       string           `xml:"summary"`
+	Description   string           `xml:"description"`
+	PublishDate   string           `xml:"date"`
+	PublishTime   string           `xml:"time"`
+	User          string           `xml:"user"`
+	Email         string           `xml:"email"`
 	Version       Version          `xml:"version"`
 	Stability     PackageStability `xml:"stability"`
 	License       License          `xml:"license"`
@@ -74,14 +68,6 @@ type Release struct {
 	Stability PackageStability `xml:"stability"`
 	Notes     string           `xml:"notes"`
 }
-
-/* type Author struct {
-	Name     string `xml:"name"`
-	PeclUser string `xml:"user"`
-	Email    string `xml:"email"`
-	// @TODO
-	Active bool `xml:"active"`
-} */
 
 type Version struct {
 	Release string `xml:"release"`

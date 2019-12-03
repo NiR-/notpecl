@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/NiR-/notpecl/extindex"
 	"github.com/NiR-/notpecl/ui"
 	"github.com/mcuadros/go-version"
 	"github.com/sirupsen/logrus"
@@ -120,8 +121,9 @@ func (b PeclBackend) ResolveConstraint(
 	ctx context.Context,
 	name,
 	constraint string,
+	minimumStability extindex.Stability,
 ) (string, error) {
-	return b.notpecl.ResolveConstraint(ctx, name, constraint)
+	return b.notpecl.ResolveConstraint(ctx, name, constraint, minimumStability)
 }
 
 func (b PeclBackend) Download(
@@ -253,7 +255,6 @@ type BuildOpts struct {
 	Parallel int
 }
 
-// @TODO: fully implement package-2.0.xsd
 func (b PeclBackend) Build(
 	ctx context.Context,
 	opts BuildOpts,
@@ -297,7 +298,6 @@ func (b PeclBackend) Build(
 
 	logrus.Debug("Running make install...")
 	args := []string{
-		"-j", strconv.Itoa(int(opts.Parallel)),
 		"INSTALL_ROOT=" + b.installDir,
 		"install",
 	}

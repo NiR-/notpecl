@@ -17,7 +17,7 @@ import (
 
 func TestLoadExtensionIndex(t *testing.T) {
 	testcases := map[string]struct {
-		statusCode int
+		statusCode  int
 		expected    extindex.ExtIndex
 		expectedErr error
 	}{
@@ -25,14 +25,21 @@ func TestLoadExtensionIndex(t *testing.T) {
 			statusCode: 200,
 			expected: extindex.ExtIndex{
 				"AOP": extindex.ExtVersions{
-					"0.1.0": extindex.ExtVersion{
-						Stability: "",
-					},
+					"0.1.0":   extindex.Beta,
+					"0.2.2b1": extindex.Beta,
+				},
+				"APCu": extindex.ExtVersions{
+					"4.0.0": extindex.Beta,
+					"4.0.2": extindex.Beta,
+					"4.0.3": extindex.Beta,
+					"5.1.8": extindex.Stable,
+					"5.1.9": extindex.Stable,
 				},
 			},
 		},
 		"fail to load extension index when http response is not 200": {
-
+			statusCode:  500,
+			expectedErr: xerrors.New("could not download extension index: status code is 500"),
 		},
 	}
 
@@ -43,7 +50,10 @@ func TestLoadExtensionIndex(t *testing.T) {
 			t.Parallel()
 
 			h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if 
+				if tc.statusCode != 200 {
+					w.WriteHeader(tc.statusCode)
+					return
+				}
 				http.ServeFile(w, r, "testdata/extensions.json")
 			})
 			socketPath, srvStop := startHTTPServer(t, "/extensions.json", h)
@@ -82,10 +92,10 @@ func TestExtIndexSort(t *testing.T) {
 	}{
 		"successfully sort versions": {
 			original: extindex.ExtVersions{
-				"1.3.0": extindex.ExtVersion{},
-				"1.5.3": extindex.ExtVersion{},
-				"1.1.1": extindex.ExtVersion{},
-				"2.1.4": extindex.ExtVersion{},
+				"1.3.0": extindex.Stable,
+				"1.5.3": extindex.Stable,
+				"1.1.1": extindex.Stable,
+				"2.1.4": extindex.Stable,
 			},
 			expected: []string{"2.1.4", "1.5.3", "1.3.0", "1.1.1"},
 		},

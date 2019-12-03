@@ -130,7 +130,7 @@ type peclInstallTC struct {
 	cleanup       func()
 }
 
-func initInstallZip1155TC(
+func initInstallRedis511TC(
 	t *testing.T,
 	httpT *http.Transport,
 	baseURI string,
@@ -192,7 +192,7 @@ func (m mockInteractiveUI) Prompt(question, defaultVal string) (string, error) {
 
 func TestPeclInstall(t *testing.T) {
 	testcases := map[string]func(t *testing.T, httpT *http.Transport, baseURI string) peclInstallTC{
-		"successfully install redis-5.1.1": initInstallZip1155TC,
+		"successfully install redis-5.1.1": initInstallRedis511TC,
 	}
 
 	for tcname := range testcases {

@@ -26,6 +26,7 @@ func (b NotPeclBackend) ResolveConstraint(
 	ctx context.Context,
 	name,
 	constraint string,
+	minimumStability extindex.Stability,
 ) (string, error) {
 	if len(b.extIndex) == 0 {
 		var err error
@@ -41,12 +42,18 @@ func (b NotPeclBackend) ResolveConstraint(
 	}
 
 	c := version.NewConstrainGroupFromString(constraint)
-	for extVer, _ := range extVersions {
-		// @TODO: check stability
+	sortedVersions := extVersions.Sort()
+
+	for i := 0; i < len(sortedVersions); i++ {
+		extVer := sortedVersions[i]
+		stability := extVersions[extVer]
+		if stability < minimumStability {
+			continue
+		}
 		if c.Match(extVer) {
 			return extVer, nil
 		}
 	}
 
-	return "", xerrors.Errorf("could not find a version of %q statisfying constraint %q", name, constraint)
+	return "", xerrors.Errorf("could not find a version of %s satisfying %q", name, constraint)
 }

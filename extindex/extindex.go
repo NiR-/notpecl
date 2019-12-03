@@ -25,6 +25,10 @@ func LoadExtensionIndex(opts LoadOpts) (ExtIndex, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 {
+		return index, xerrors.Errorf("could not download extension index: status code is %d", resp.StatusCode)
+	}
+
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return index, xerrors.Errorf("could not read extension index: %v", err)
@@ -41,7 +45,61 @@ func LoadExtensionIndex(opts LoadOpts) (ExtIndex, error) {
 type ExtIndex map[string]ExtVersions
 
 // ExtVersions is the list of versions associated to their stability, for a given extension
-type ExtVersions map[string]string
+type ExtVersions map[string]Stability
+
+type Stability int
+
+func StabilityFromString(s string) Stability {
+	switch string(s) {
+	case "snapshot":
+		return Snapshot
+	case "devel":
+		return Devel
+	case "alpha":
+		return Alpha
+	case "beta":
+		return Beta
+	case "stable":
+		return Stable
+	default:
+		return Unknown
+	}
+}
+
+func (s *Stability) UnmarshalJSON(raw []byte) error {
+	var str string
+	if err := json.Unmarshal(raw, &str); err != nil {
+		return err
+	}
+	*s = StabilityFromString(str)
+	return nil
+}
+
+func (s Stability) String() string {
+	switch s {
+	case Snapshot:
+		return "snapshot"
+	case Devel:
+		return "devel"
+	case Alpha:
+		return "alpha"
+	case Beta:
+		return "beta"
+	case Stable:
+		return "stable"
+	default:
+		return "unknown"
+	}
+}
+
+const (
+	Unknown Stability = iota
+	Snapshot
+	Devel
+	Alpha
+	Beta
+	Stable
+)
 
 // Sort returns a slice containing the versions of the extension sorted in
 // descending order.
