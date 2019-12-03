@@ -143,33 +143,33 @@ func (b PeclBackend) Download(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", xerrors.Errorf("could not download extension %q: status code is not 200", name)
+		return "", xerrors.Errorf("could not download %s extension: expected status code 200, got %d", name, resp.StatusCode)
 	}
 
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", xerrors.Errorf("could not download extension %q: %v", name, err)
+		return "", xerrors.Errorf("could not download %s extension: %v", name, err)
 	}
 
 	rawbuf := bytes.NewBuffer(raw)
 
 	contentLength, err := strconv.Atoi(resp.Header.Get("content-length"))
 	if err != nil {
-		return "", xerrors.Errorf("could not convert content-length to a number: %v", err)
+		return "", xerrors.Errorf("could not download %s extension: could not convert content-length to a number: %v", name, err)
 	}
 	if rawbuf.Len() != contentLength {
-		return "", xerrors.Errorf("content length is %d, but only %d bytes read", rawbuf.Len(), contentLength)
+		return "", xerrors.Errorf("could not download %s extension: content length is %d, but only %d bytes read", name, rawbuf.Len(), contentLength)
 	}
 
 	rawr := bufio.NewReaderSize(rawbuf, contentLength)
 	testBytes, err := rawr.Peek(64)
 	if err != nil {
-		return "", xerrors.Errorf("could not peek the two first bytes: %v", err)
+		return "", xerrors.Errorf("could not download %s extension: could not peek the 64 first bytes: %v", name, err)
 	}
 
 	contenttype := http.DetectContentType(testBytes)
 	if contenttype != "application/x-gzip" {
-		return "", xerrors.Errorf("could not download extension %q: content type is not suppored", name)
+		return "", xerrors.Errorf("could not download %s extension: content type is not suppored", name)
 	}
 
 	gzipr, err := gzip.NewReader(rawr)
