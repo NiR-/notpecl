@@ -1,0 +1,128 @@
+version: 2
+
+references:
+  vm_machine: &vm_machine
+    machine:
+      image: ubuntu-1604:201903-01
+    working_directory: /home/circleci/go/src/github.com/NiR-/notpecl
+    environment:
+      TEST_RESULTS_DIR: /home/circleci/test-results
+      GO111MODULE: "on"
+      GO_ARCHIVE: go1.13.4.linux-amd64.tar.gz
+
+  checkout_step: &checkout_step
+    checkout: {}
+
+  save_full_cache_step: &save_cache_step
+    save_cache:
+      key: v9-go-pkg-cache-{{ checksum "go.sum" }}
+      paths:
+        # Put the newer version of Golang and NodeJS retrieved at the beginning
+        # in the cache to not download them at each build.
+        - /tmp/go1.13.4.linux-amd64.tar.gz
+        # Used by Go Modules
+        - "~/go/pkg/mod"
+        # Don't put the whole ~/go/src path here or GCloud service account might
+        # leak in CircleCI cache.
+        - "~/go/src/github.com/jstemmer/go-junit-report"
+
+  restore_full_cache_step: &restore_cache_step
+    restore_cache:
+      keys:
+        - v9-go-pkg-cache-{{ checksum "go.sum" }}
+
+  install_newer_go_version: &install_newer_go_version
+    run:
+      name: Install newer version of Go (v1.13.4)
+      command: |
+        # Remove previous version of Go
+        sudo rm -rf /usr/local/go
+        if [ ! -f /tmp/${GO_ARCHIVE} ]; then \
+          wget -O /tmp/${GO_ARCHIVE} https://dl.google.com/go/${GO_ARCHIVE}; \
+        fi
+        sudo tar -C /usr/local -xzf /tmp/${GO_ARCHIVE}
+        ls -lah /tmp
+
+  fix_gopath_step: &fix_gopath_step
+    # By default, CircleCI uses two directories: one to store deps and the
+    # other one to store the project. This allows to easily cache the deps
+    # without caching the project itself. But this is not needed for us since
+    # project dependencies are installed/vendored into the project root dir
+    # and the full ~/go/src path is not put in cache.
+    run:
+      name: Fix $GOPATH
+      command: |
+        echo 'export GOPATH=/home/circleci/go/' >> $BASH_ENV
+        echo "export PATH=/home/circleci/go/bin:${PATH}" >> $BASH_ENV
+
+  create_gobin_step: &create_gobin_step
+    run:
+      name: Create $GOPATH/bin
+      command: mkdir ${GOPATH}/bin
+
+  install_go_deps_step: &install_go_deps_step
+    run: 
+      name: Install Go dependencies
+      command: |
+        # Used to enhance integration with CircleCI
+        go get github.com/jstemmer/go-junit-report
+        # Install project dependencies
+        go mod download
+
+  install_php_step: &install_php_step
+    run:
+      name: Install PHP
+      command: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y php7.0-cli php7.0-dev
+        wget -O libzstd-dev.deb http://mirrors.kernel.org/ubuntu/pool/main/libz/libzstd/libzstd-dev_1.3.8+dfsg-3_amd64.deb
+        wget -O libzstd1.deb http://mirrors.kernel.org/ubuntu/pool/main/libz/libzstd/libzstd1_1.3.8+dfsg-3_amd64.deb
+        sudo dpkg -i libzstd1.deb libzstd-dev.deb
+
+  prepare_test_results_dir_step: &prepare_test_results_dir_step
+    run:
+      name: Prepare test results directory
+      command: mkdir -p ${TEST_RESULTS_DIR}
+
+  run_tests_step: &run_tests_step
+    run:
+      name: Run tests
+      command: |
+        report() {
+          go-junit-report <${TEST_RESULTS_DIR}/go-test.out > ${TEST_RESULTS_DIR}/go-test-report.xml
+        }
+
+        trap "report" EXIT
+        make test 2>&1 > ${TEST_RESULTS_DIR}/go-test.out
+
+  store_artifacts_step: &store_artifacts_step
+    store_artifacts:
+      path: ~/test-results
+
+  store_test_results_step: &store_test_results_step
+    store_test_results:
+      path: ~/test-results
+
+jobs:
+  test:
+    <<: *vm_machine
+    steps:
+      - <<: *checkout_step
+      - <<: *restore_cache_step
+      - <<: *install_newer_go_version
+      - <<: *fix_gopath_step
+      - <<: *create_gobin_step
+      - <<: *install_go_deps_step
+      - <<: *save_cache_step
+      - <<: *install_php_step
+      - <<: *prepare_test_results_dir_step
+      - <<: *run_tests_step
+      - <<: *store_artifacts_step
+      - <<: *store_test_results_step
+
+workflows:
+  version: 2
+
+  test:
+    jobs:
+      - test
