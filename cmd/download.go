@@ -5,10 +5,16 @@ import (
 	"log"
 	"strings"
 
+	"github.com/NiR-/notpecl/backends"
+	"github.com/NiR-/notpecl/extindex"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
+
+var downloadFlags = struct {
+	minimumStability string
+}{}
 
 func NewDownloadCmd() *cobra.Command {
 	download := &cobra.Command{
@@ -18,16 +24,25 @@ func NewDownloadCmd() *cobra.Command {
 		Run:               runDownloadCmd,
 	}
 
+	download.Flags().StringVar(&downloadFlags.minimumStability,
+		"minimum-stability",
+		string(extindex.Stable),
+		"Minimum stability level to look for when resolving version constraints (default: stable, available: stable > beta > alpha > devel > snapshot)",
+	)
+
 	return download
 }
 
 func runDownloadCmd(cmd *cobra.Command, args []string) {
-	p := initPeclBackend()
+	np := backends.NewNotPeclBackend()
+	p := initPeclBackend(np)
 	eg, ctx := errgroup.WithContext(context.TODO())
 
 	if len(args) == 0 {
 		logrus.Fatal("You have to provide at least one extension.")
 	}
+
+	stability := extindex.StabilityFromString(downloadFlags.minimumStability)
 
 	for i := range args {
 		ext := args[i]
@@ -39,7 +54,7 @@ func runDownloadCmd(cmd *cobra.Command, args []string) {
 				constraint = segments[1]
 			}
 
-			version, err := p.ResolveConstraint(ctx, name, constraint)
+			version, err := p.ResolveConstraint(ctx, name, constraint, stability)
 			if err != nil {
 				return err
 			}
@@ -58,8 +73,3 @@ func runDownloadCmd(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 }
-
-// php -r "echo ini_get('extension_dir');"
-// /usr/local/lib/php/extensions/no-debug-non-zts-20180731/
-//
-//

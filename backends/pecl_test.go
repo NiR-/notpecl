@@ -1,4 +1,4 @@
-package pecl_test
+package backends_test
 
 import (
 	"context"
@@ -11,60 +11,80 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NiR-/notpecl/pecl"
+	"github.com/NiR-/notpecl/backends"
 	"github.com/tv42/httpunix"
 	"golang.org/x/xerrors"
 )
 
 type peclDownloadTC struct {
-	backend     pecl.PeclBackend
+	backend     backends.PeclBackend
+	handler     http.Handler
 	downloadDir string
 	expectedErr error
 	cleanup     func()
 }
 
-func initDownloadZip1155TC(
-	t *testing.T,
-	httpT *http.Transport,
-	baseURI string,
-) peclDownloadTC {
-	cacheDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
+func initDownloadZip1155TC(t *testing.T) peclDownloadTC {
 	downloadDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cleanup := func() {
-		if err := os.RemoveAll(cacheDir); err != nil {
-			t.Fatal(err)
-		}
 		if err := os.RemoveAll(downloadDir); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	b, err := pecl.NewPeclBackend(cacheDir, downloadDir, downloadDir)
+	np := backends.NewNotPeclBackend()
+	b, err := backends.NewPeclBackend(np, downloadDir, downloadDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b = b.WithHTTPTransport(httpT)
-	b = b.WithBaseURI(baseURI)
-
 	return peclDownloadTC{
-		backend:     b,
+		backend: b,
+		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "testdata/pecl.php.net/zip-1.15.5.tgz")
+		}),
 		downloadDir: downloadDir,
 		cleanup:     cleanup,
 	}
 }
 
+func initFailDownloadWithBadStatusCodeTC(t *testing.T) peclDownloadTC {
+	downloadDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cleanup := func() {
+		if err := os.RemoveAll(downloadDir); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	np := backends.NewNotPeclBackend()
+	b, err := backends.NewPeclBackend(np, downloadDir, downloadDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return peclDownloadTC{
+		backend: b,
+		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(500)
+		}),
+		downloadDir: downloadDir,
+		cleanup:     cleanup,
+		expectedErr: xerrors.New("could not download zip extension: expected status code 200, got 500"),
+	}
+}
+
 func TestPeclDownload(t *testing.T) {
-	testcases := map[string]func(t *testing.T, httpT *http.Transport, baseURI string) peclDownloadTC{
-		"successfully download zip-1.15.5": initDownloadZip1155TC,
+	testcases := map[string]func(t *testing.T) peclDownloadTC{
+		"successfully download zip-1.15.5":                           initDownloadZip1155TC,
+		"installation fail when the download status code is not 200": initFailDownloadWithBadStatusCodeTC,
 	}
 
 	for tcname := range testcases {
@@ -73,11 +93,10 @@ func TestPeclDownload(t *testing.T) {
 		t.Run(tcname, func(t *testing.T) {
 			t.Parallel()
 
-			socketPath, srvStop := startPeclServer(
-				t,
-				"/get/zip-1.15.5.tgz",
-				serveExtTgzHandler(t, "testdata/pecl.php.net/zip-1.15.5.tgz"),
-			)
+			tc := tcinit(t)
+			defer tc.cleanup()
+
+			socketPath, srvStop := startHTTPServer(t, "/get/zip-1.15.5.tgz", tc.handler)
 			defer srvStop()
 
 			ut := &httpunix.Transport{}
@@ -85,16 +104,13 @@ func TestPeclDownload(t *testing.T) {
 			httpT := &http.Transport{}
 			httpT.RegisterProtocol(httpunix.Scheme, ut)
 
-			tc := tcinit(t, httpT, "http+unix://notpecl")
-			defer tc.cleanup()
+			tc.backend = tc.backend.WithHTTPTransport(httpT)
+			tc.backend = tc.backend.WithBaseURI("http+unix://notpecl")
 
 			ctx := context.TODO()
 			_, err := tc.backend.Download(ctx, "zip", "1.15.5")
 			if tc.expectedErr != nil {
-				if err == nil {
-					t.Fatalf("Expected error: %v\nGot: <nil>", tc.expectedErr)
-				}
-				if tc.expectedErr.Error() != err.Error() {
+				if err == nil || tc.expectedErr.Error() != err.Error() {
 					t.Fatalf("Expected error: %v\nGot: %v", tc.expectedErr, err)
 				}
 				return
@@ -131,22 +147,17 @@ func TestPeclDownload(t *testing.T) {
 }
 
 type peclInstallTC struct {
-	backend       pecl.PeclBackend
+	backend       backends.PeclBackend
 	configureArgs []string
 	expectedErr   error
 	cleanup       func()
 }
 
-func initInstallZip1155TC(
+func initInstallRedis511TC(
 	t *testing.T,
 	httpT *http.Transport,
 	baseURI string,
 ) peclInstallTC {
-	cacheDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	downloadDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -158,9 +169,6 @@ func initInstallZip1155TC(
 	}
 
 	cleanup := func() {
-		if err := os.RemoveAll(cacheDir); err != nil {
-			t.Fatal(err)
-		}
 		if err := os.RemoveAll(downloadDir); err != nil {
 			t.Fatal(err)
 		}
@@ -169,7 +177,8 @@ func initInstallZip1155TC(
 		}
 	}
 
-	b, err := pecl.NewPeclBackend(cacheDir, downloadDir, downloadDir)
+	np := backends.NewNotPeclBackend()
+	b, err := backends.NewPeclBackend(np, downloadDir, downloadDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +215,7 @@ func (m mockInteractiveUI) Prompt(question, defaultVal string) (string, error) {
 
 func TestPeclInstall(t *testing.T) {
 	testcases := map[string]func(t *testing.T, httpT *http.Transport, baseURI string) peclInstallTC{
-		"successfully install redis-5.1.1": initInstallZip1155TC,
+		"successfully install redis-5.1.1": initInstallRedis511TC,
 	}
 
 	for tcname := range testcases {
@@ -215,7 +224,7 @@ func TestPeclInstall(t *testing.T) {
 		t.Run(tcname, func(t *testing.T) {
 			t.Parallel()
 
-			socketPath, srvStop := startPeclServer(
+			socketPath, srvStop := startHTTPServer(
 				t,
 				"/get/redis-5.1.1.tgz",
 				serveExtTgzHandler(t, "testdata/pecl.php.net/redis-5.1.1.tgz"),
@@ -231,7 +240,7 @@ func TestPeclInstall(t *testing.T) {
 			defer tc.cleanup()
 
 			ctx := context.TODO()
-			opts := pecl.InstallOpts{
+			opts := backends.InstallOpts{
 				Name:          "redis",
 				Version:       "5.1.1",
 				ConfigureArgs: tc.configureArgs,
@@ -254,13 +263,13 @@ func TestPeclInstall(t *testing.T) {
 	}
 }
 
-func startPeclServer(
+func startHTTPServer(
 	t *testing.T,
 	route string,
-	handler func(http.ResponseWriter, *http.Request),
+	handler http.Handler,
 ) (string, func()) {
 	mux := http.NewServeMux()
-	mux.HandleFunc(route, handler)
+	mux.Handle(route, handler)
 
 	socketPath := path.Join(os.TempDir(), random()+".sock")
 	unixListener, err := net.Listen("unix", socketPath)
@@ -289,15 +298,15 @@ func random() string {
 	return strconv.Itoa(int(1e9 + r%1e9))[1:]
 }
 
-func serveExtTgzHandler(t *testing.T, fullpath string) func(http.ResponseWriter, *http.Request) {
+func serveExtTgzHandler(t *testing.T, fullpath string) http.Handler {
 	buf, err := ioutil.ReadFile(fullpath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Length", strconv.Itoa(len(buf)))
 		w.WriteHeader(200)
 		w.Write(buf)
-	}
+	})
 }

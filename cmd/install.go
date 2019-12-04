@@ -5,12 +5,14 @@ import (
 	"log"
 	"strings"
 
-	"github.com/NiR-/notpecl/pecl"
+	"github.com/NiR-/notpecl/backends"
+	"github.com/NiR-/notpecl/extindex"
 	"github.com/spf13/cobra"
 )
 
 var installFlags = struct {
-	cleanup bool
+	cleanup          bool
+	minimumStability string
 }{
 	cleanup: true,
 }
@@ -23,16 +25,27 @@ func NewInstallCmd() *cobra.Command {
 		Run:               runInstallCmd,
 	}
 
-	install.Flags().BoolVar(&installFlags.cleanup, "no-cleanup", false, "Don't remove source code and build files.")
+	install.Flags().BoolVar(&installFlags.cleanup,
+		"no-cleanup",
+		false,
+		"Don't remove source code and build files.",
+	)
+	install.Flags().StringVar(&installFlags.minimumStability,
+		"minimum-stability",
+		string(extindex.Stable),
+		"Minimum stability level to look for when resolving version constraints (default: stable, available: stable > beta > alpha > devel > snapshot)",
+	)
 	// @TODO: add a flag to set configure args for each extension
-	// @TODO: add a minimum-stability flag
 
 	return install
 }
 
 func runInstallCmd(cmd *cobra.Command, args []string) {
-	p := initPeclBackend()
+	np := backends.NewNotPeclBackend()
+	p := initPeclBackend(np)
 	ctx := context.TODO()
+
+	stability := extindex.StabilityFromString(installFlags.minimumStability)
 
 	for _, arg := range args {
 		segments := strings.SplitN(arg, ":", 2)
@@ -42,12 +55,12 @@ func runInstallCmd(cmd *cobra.Command, args []string) {
 			extVerConstraint = segments[1]
 		}
 
-		extVersion, err := p.ResolveConstraint(ctx, extName, extVerConstraint)
+		extVersion, err := p.ResolveConstraint(ctx, extName, extVerConstraint, stability)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		opts := pecl.InstallOpts{
+		opts := backends.InstallOpts{
 			Name:          extName,
 			Version:       extVersion,
 			ConfigureArgs: []string{},

@@ -1,4 +1,4 @@
-package pecl
+package backends
 
 import (
 	"archive/tar"
@@ -17,13 +17,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/NiR-/notpecl/extindex"
 	"github.com/NiR-/notpecl/ui"
 	"github.com/mcuadros/go-version"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/xerrors"
 )
 
-func NewPeclBackend(cacheDir, downloadDir, installDir string) (PeclBackend, error) {
+func NewPeclBackend(
+	np NotPeclBackend,
+	downloadDir,
+	installDir string,
+) (PeclBackend, error) {
 	_, err := os.Stat(downloadDir)
 	if os.IsNotExist(err) {
 		return PeclBackend{}, xerrors.Errorf("download dir %q does not exist", downloadDir)
@@ -34,8 +39,8 @@ func NewPeclBackend(cacheDir, downloadDir, installDir string) (PeclBackend, erro
 	}
 
 	b := PeclBackend{
+		notpecl:       np,
 		ui:            ui.NewNonInteractiveUI(),
-		cacheDir:      cacheDir,
 		downloadDir:   downloadDir,
 		installDir:    installDir,
 		peclBaseURI:   "https://pecl.php.net",
@@ -45,12 +50,12 @@ func NewPeclBackend(cacheDir, downloadDir, installDir string) (PeclBackend, erro
 }
 
 type PeclBackend struct {
-	ui ui.UI
-	// cacheDir is the folder where pecl cache is kept
-	cacheDir      string
+	notpecl       NotPeclBackend
+	ui            ui.UI
 	downloadDir   string
 	installDir    string
 	peclBaseURI   string
+	extIndexURI   string
 	httpTransport *http.Transport
 }
 
@@ -116,8 +121,9 @@ func (b PeclBackend) ResolveConstraint(
 	ctx context.Context,
 	name,
 	constraint string,
+	minimumStability extindex.Stability,
 ) (string, error) {
-	return constraint, nil
+	return b.notpecl.ResolveConstraint(ctx, name, constraint, minimumStability)
 }
 
 func (b PeclBackend) Download(
@@ -137,33 +143,33 @@ func (b PeclBackend) Download(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", xerrors.Errorf("could not download extension %q: status code is not 200", name)
+		return "", xerrors.Errorf("could not download %s extension: expected status code 200, got %d", name, resp.StatusCode)
 	}
 
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", xerrors.Errorf("could not download extension %q: %v", name, err)
+		return "", xerrors.Errorf("could not download %s extension: %v", name, err)
 	}
 
 	rawbuf := bytes.NewBuffer(raw)
 
 	contentLength, err := strconv.Atoi(resp.Header.Get("content-length"))
 	if err != nil {
-		return "", xerrors.Errorf("could not convert content-length to a number: %v", err)
+		return "", xerrors.Errorf("could not download %s extension: could not convert content-length to a number: %v", name, err)
 	}
 	if rawbuf.Len() != contentLength {
-		return "", xerrors.Errorf("content length is %d, but only %d bytes read", rawbuf.Len(), contentLength)
+		return "", xerrors.Errorf("could not download %s extension: content length is %d, but only %d bytes read", name, rawbuf.Len(), contentLength)
 	}
 
 	rawr := bufio.NewReaderSize(rawbuf, contentLength)
 	testBytes, err := rawr.Peek(64)
 	if err != nil {
-		return "", xerrors.Errorf("could not peek the two first bytes: %v", err)
+		return "", xerrors.Errorf("could not download %s extension: could not peek the 64 first bytes: %v", name, err)
 	}
 
 	contenttype := http.DetectContentType(testBytes)
 	if contenttype != "application/x-gzip" {
-		return "", xerrors.Errorf("could not download extension %q: content type is not suppored", name)
+		return "", xerrors.Errorf("could not download %s extension: content type is not suppored", name)
 	}
 
 	gzipr, err := gzip.NewReader(rawr)
@@ -249,7 +255,6 @@ type BuildOpts struct {
 	Parallel int
 }
 
-// @TODO: fully implement package-2.0.xsd
 func (b PeclBackend) Build(
 	ctx context.Context,
 	opts BuildOpts,
@@ -265,7 +270,7 @@ func (b PeclBackend) Build(
 	if err := checkPackageDependencies(pkg); err != nil {
 		return err
 	}
-	if err := askForMissingArgs(b.ui, pkg, &opts); err != nil {
+	if err := askAboutMissingArgs(b.ui, pkg, &opts); err != nil {
 		return err
 	}
 
@@ -293,7 +298,6 @@ func (b PeclBackend) Build(
 
 	logrus.Debug("Running make install...")
 	args := []string{
-		"-j", strconv.Itoa(int(opts.Parallel)),
 		"INSTALL_ROOT=" + b.installDir,
 		"install",
 	}
@@ -445,7 +449,7 @@ func isExtensionEnabled(name string) (bool, error) {
 	return val, nil
 }
 
-func askForMissingArgs(u ui.UI, pkg Package, opts *BuildOpts) error {
+func askAboutMissingArgs(u ui.UI, pkg Package, opts *BuildOpts) error {
 	currentFlags := map[string]struct{}{}
 	for _, flag := range opts.ConfigureArgs {
 		segments := strings.SplitN(flag, "=", 2)
