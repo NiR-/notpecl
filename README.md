@@ -1,7 +1,14 @@
 # notpecl
 
-`notpecl` is a little CLI tool to replace the old `pecl` tool, as the latter is
-not shipped with PHP since 7.4. It has a simple UI, with only three commands:
+`notpecl` is a little CLI tool to replace the deprecated `pecl` tool. See the
+[Why](#why) section below.
+
+* [Usage](#usage)
+* [Install](#install)
+* [Why?](#why)
+* [Credits](#credits)
+
+## Usage
 
 * `download`: Download and unpack extension archives (tgz with a package.xml) ;
 * `build`: Build an extension from its source code ;
@@ -72,3 +79,12 @@ You have to build it by yourself but a proper release will come soon:
 go get github.com/NiR-/notpecl
 go install github.com/NiR-/notpecl
 ```
+
+## Why?
+
+See https://github.com/docker-library/php/issues/846
+
+## Credits
+
+Original idea by [Albin Kerouanton](https://github.com/NiR-), supported by
+[KNPLabs](https://www.knplabs.com/)
