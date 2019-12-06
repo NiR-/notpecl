@@ -47,7 +47,7 @@ func initPeclBackend(np backends.NotPeclBackend) backends.PeclBackend {
 		log.Fatal(err)
 	}
 
-	p, err := backends.NewPeclBackend(np, downloadDir, "/tmp/notpecl")
+	p, err := backends.NewPeclBackend(np, downloadDir, "")
 	if err != nil {
 		log.Fatal(err)
 	}

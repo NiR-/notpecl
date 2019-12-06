@@ -43,7 +43,7 @@ func NewInstallCmd() *cobra.Command {
 func runInstallCmd(cmd *cobra.Command, args []string) {
 	np := backends.NewNotPeclBackend()
 	p := initPeclBackend(np)
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	stability := extindex.StabilityFromString(installFlags.minimumStability)
 

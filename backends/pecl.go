@@ -33,9 +33,11 @@ func NewPeclBackend(
 	if os.IsNotExist(err) {
 		return PeclBackend{}, xerrors.Errorf("download dir %q does not exist", downloadDir)
 	}
-	_, err = os.Stat(installDir)
-	if os.IsNotExist(err) {
-		return PeclBackend{}, xerrors.Errorf("install dir %q does not exist", installDir)
+	if installDir != "" {
+		_, err = os.Stat(installDir)
+		if os.IsNotExist(err) {
+			return PeclBackend{}, xerrors.Errorf("install dir %q does not exist", installDir)
+		}
 	}
 
 	b := PeclBackend{
@@ -296,11 +298,12 @@ func (b PeclBackend) Build(
 	}
 
 	logrus.Debug("Running make install...")
-	args := []string{
-		"INSTALL_ROOT=" + b.installDir,
-		"install",
+	installArgs := []string{}
+	if b.installDir != "" {
+		installArgs = append(installArgs, "INSTALL_ROOT="+b.installDir)
 	}
-	err = runCommand(ctx, opts.ExtensionDir, "make", args...)
+	installArgs = append(installArgs, "install")
+	err = runCommand(ctx, opts.ExtensionDir, "make", installArgs...)
 	if err != nil {
 		return xerrors.Errorf("failed to run make install: %v", err)
 	}
