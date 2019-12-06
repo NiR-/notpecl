@@ -1,6 +1,6 @@
 export GO111MODULE=on
 
-# Used by go linker at build time to set the variables needed for `kit version`.
+# Used by go linker at build time to set the variables needed for `notpecl version`.
 GIT_SHA1 := $(shell git rev-parse HEAD)
 ifeq ($(VERSION),)
 ifneq ($(IMAGE_TAG),)
@@ -34,3 +34,13 @@ test:
 .PHONY: gendoc
 gendoc: build
 	./.bin/notpecl gendoc --dest ./docs
+
+.PHONY: .release
+.release:
+ifeq ($(GIT_TAG),)
+	$(error You have to provide the GIT_TAG of the release)
+endif
+ifeq ($(NOTPECL_BIN),)
+	$(error You have to provide the path to notpecl binary)
+endif
+	./.circleci/upload_bin_to_github

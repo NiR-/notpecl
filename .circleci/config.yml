@@ -22,8 +22,6 @@ references:
         - /tmp/go1.13.4.linux-amd64.tar.gz
         # Used by Go Modules
         - "~/go/pkg/mod"
-        # Don't put the whole ~/go/src path here or GCloud service account might
-        # leak in CircleCI cache.
         - "~/go/src/github.com/jstemmer/go-junit-report"
 
   restore_full_cache_step: &restore_cache_step
@@ -103,6 +101,18 @@ references:
     store_test_results:
       path: ~/test-results
 
+  build_notpecl_step: &build_notpecl_step
+    run:
+      name: Build notpecl
+      command: make build
+
+
+  upload_bin_to_github_step: &upload_bin_to_github_step
+    run:
+      name: Upload notpecl binary to Github release
+      command: |
+        GIT_TAG=${CIRCLE_TAG} NOTPECL_BIN=./notpecl make release
+
 jobs:
   test:
     <<: *vm_machine
@@ -120,9 +130,29 @@ jobs:
       - <<: *store_artifacts_step
       - <<: *store_test_results_step
 
+  release:
+    <<: *vm_machine
+    steps:
+      - <<: *checkout_step
+      - <<: *restore_cache_step
+      - <<: *install_newer_go_version
+      - <<: *fix_gopath_step
+      - <<: *create_gobin_step
+      - <<: *install_go_deps_step
+      - <<: *save_cache_step
+      - <<: *build_notpecl_step
+      - <<: *upload_bin_to_github_step
+
 workflows:
   version: 2
 
   test:
     jobs:
       - test
+
+  release:
+    jobs:
+      - release:
+          filters:
+            branches: { ignore: /.*/ }
+            tags: { only: /v.*/ }
