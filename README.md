@@ -8,18 +8,42 @@ not shipped with PHP since 7.4. It has a simple UI, with only three commands:
 * `install`: Download and build an extension locally. This is the one you 
 probably want to use ;
 
-Like pecl, this tool supports config questions and can be run in noninteractive
-mode (it uses default values in such case).
+Like pecl, this tool has an interactive UI for config questions and also
+supports running in noninteractive mode.
 
-There's no support for version constraints for now, but it's going to be
-provided at some point.
+This tool supports version constraints expressed like Composer:
 
-It's only compatible with Unix systems for now, but support for Windows is 
-planned.
+```
+# This is going to install the last v5.1 patch version.
+$ notpecl install redis:~5.1.0
+```
+
+Moreover, notpecl only resolve versions with `stable` stability by default.
+You can override that by appending ̀`@<minimum-stability>` to any version
+constraint:
+
+```
+# This is going to install yaml v2.0.0RC8
+$ notpecl install yaml:2.0.0RC8@beta
+# This is going to install the last patch version the v0.2 branch of uv extension
+$ notpecl install uv:~0.2.0@beta
+```
+
+For more details about version constraints, see the [versions](https://getcomposer.org/doc/articles/versions.md)
+page from Composer documentation.
+
+For reference, here's the complete list of stability supported by notpecl, in
+descending order:
+
+* `stable`
+* `beta`
+* `alpha`
+* `devel`
+* `snapshot`
 
 ## Install
 
-For now, you have to build it by yourself but a proper release will come:
+You have to build it by yourself but a proper release will come soon:
 
 ```
 go get github.com/NiR-/notpecl

@@ -1,5 +1,15 @@
 export GO111MODULE=on
 
+# Used by go linker at build time to set the variables needed for `kit version`.
+GIT_SHA1 := $(shell git rev-parse HEAD)
+ifeq ($(VERSION),)
+ifneq ($(IMAGE_TAG),)
+	VERSION := $(IMAGE_TAG)
+else
+	VERSION := dev version
+endif
+endif
+
 # Either use `gotest` if available (same as `go test` but with colors), or use
 # `go test`.
 GOTEST := go test
@@ -9,7 +19,11 @@ endif
 
 .PHONY: build
 build:
-	go build -buildmode pie -ldflags '-w -s' -o .bin/notpecl .
+	go build -o .bin/notpecl -buildmode pie -ldflags "\
+		-w -s \
+		-X 'github.com/NiR-/notpecl/cmd.releaseVersion=$(VERSION)' \
+		-X 'github.com/NiR-/notpecl/cmd.commitHash=$(GIT_SHA1)' \
+	" .
 
 .PHONY: test
 test:
