@@ -55,7 +55,6 @@ type PeclBackend struct {
 	downloadDir   string
 	installDir    string
 	peclBaseURI   string
-	extIndexURI   string
 	httpTransport *http.Transport
 }
 

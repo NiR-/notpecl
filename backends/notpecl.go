@@ -2,6 +2,7 @@ package backends
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/NiR-/notpecl/extindex"
 	"github.com/mcuadros/go-version"
@@ -30,7 +31,10 @@ func (b NotPeclBackend) ResolveConstraint(
 ) (string, error) {
 	if len(b.extIndex) == 0 {
 		var err error
-		b.extIndex, err = extindex.LoadExtensionIndex(extindex.LoadOpts{})
+		b.extIndex, err = extindex.LoadExtensionIndex(extindex.LoadOpts{
+			HttpTransport: &http.Transport{},
+			ExtIndexURI:   "https://storage.googleapis.com/notpecl/extensions.json",
+		})
 		if err != nil {
 			return "", err
 		}
