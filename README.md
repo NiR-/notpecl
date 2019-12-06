@@ -43,9 +43,32 @@ descending order:
 
 ## Install
 
+You can either download notpecl or compile it by yourself:
+
+###### 1a. Download it
+
+```bash
+wget -O /usr/local/sbin/notpecl https://storage.googleapis.com/notpecl/notpecl
+chmod +x /usr/ocal/sbin/notpecl
+```
+
+###### 1b. Within a Dockerfile
+
+```dockerfile
+FROM php:7.4-fpm-buster
+
+RUN curl -f -o /usr/local/sbin/notpecl https://storage.googleapis.com/notpecl/notpecl && \
+    chmod +x /usr/local/sbin/notpecl && \
+    notpecl install redis:5.1.1 && \
+    docker-php-ext-enable redis && \
+    rm -rf /usr/local/sbin/notpecl
+```
+
+###### 2. Build from sources
+
 You have to build it by yourself but a proper release will come soon:
 
-```
+```bash
 go get github.com/NiR-/notpecl
 go install github.com/NiR-/notpecl
 ```
