@@ -27,9 +27,9 @@ func NewInstallCmd() *cobra.Command {
 	}
 
 	install.Flags().BoolVar(&installFlags.cleanup,
-		"no-cleanup",
-		false,
-		"Don't remove source code and build files.")
+		"cleanup",
+		true,
+		"Remove source code and build files after installing the extension (enabled by default).")
 	install.Flags().StringVar(&installFlags.minimumStability,
 		"minimum-stability",
 		extindex.Stable.String(),
