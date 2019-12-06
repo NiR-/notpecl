@@ -3,7 +3,7 @@ export GO111MODULE=on
 # Used by go linker at build time to set the variables needed for `notpecl version`.
 GIT_SHA1 := $(shell git rev-parse HEAD)
 ifeq ($(VERSION),)
-ifneq ($(IMAGE_TAG),)
+ifneq ($(CIRCLE_TAG),)
 	VERSION := $(IMAGE_TAG)
 else
 	VERSION := dev version
