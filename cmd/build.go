@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
-	"os"
-	"path"
 	"github.com/NiR-/notpecl/backends"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"os"
+	"path"
 )
 
 var buildFlags = struct {
@@ -31,7 +31,7 @@ func NewBuildCmd() *cobra.Command {
 
 func runBuildCmd(cmd *cobra.Command, args []string) {
 	np := backends.NewNotPeclBackend()
-	p := initPeclBackend(np)
+	p := initPeclBackend(np, "")
 	ctx := context.TODO()
 
 	extDir := cwd()

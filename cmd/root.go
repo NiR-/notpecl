@@ -41,13 +41,16 @@ func NewRootCmd() *cobra.Command {
 	return root
 }
 
-func initPeclBackend(np backends.NotPeclBackend) backends.PeclBackend {
+func initPeclBackend(
+	np backends.NotPeclBackend,
+	installDir string,
+) backends.PeclBackend {
 	downloadDir, err := findDownloadDir()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	p, err := backends.NewPeclBackend(np, downloadDir, "")
+	p, err := backends.NewPeclBackend(np, downloadDir, installDir)
 	if err != nil {
 		log.Fatal(err)
 	}

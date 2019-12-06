@@ -13,6 +13,7 @@ import (
 var installFlags = struct {
 	cleanup          bool
 	minimumStability string
+	installDir       string
 }{
 	cleanup: true,
 }
@@ -28,13 +29,15 @@ func NewInstallCmd() *cobra.Command {
 	install.Flags().BoolVar(&installFlags.cleanup,
 		"no-cleanup",
 		false,
-		"Don't remove source code and build files.",
-	)
+		"Don't remove source code and build files.")
 	install.Flags().StringVar(&installFlags.minimumStability,
 		"minimum-stability",
-		string(extindex.Stable),
-		"Minimum stability level to look for when resolving version constraints (default: stable, available: stable > beta > alpha > devel > snapshot)",
-	)
+		extindex.Stable.String(),
+		"Minimum stability level to look for when resolving version constraints (default: stable, available: stable > beta > alpha > devel > snapshot)")
+	install.Flags().StringVar(&installFlags.installDir,
+		"install-dir",
+		"",
+		"Directory where the extensions shoud be installed.")
 	// @TODO: add a flag to set configure args for each extension
 
 	return install
@@ -42,7 +45,7 @@ func NewInstallCmd() *cobra.Command {
 
 func runInstallCmd(cmd *cobra.Command, args []string) {
 	np := backends.NewNotPeclBackend()
-	p := initPeclBackend(np)
+	p := initPeclBackend(np, installFlags.installDir)
 	ctx := context.Background()
 
 	stability := extindex.StabilityFromString(installFlags.minimumStability)

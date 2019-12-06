@@ -35,7 +35,7 @@ func NewDownloadCmd() *cobra.Command {
 
 func runDownloadCmd(cmd *cobra.Command, args []string) {
 	np := backends.NewNotPeclBackend()
-	p := initPeclBackend(np)
+	p := initPeclBackend(np, "")
 	eg, ctx := errgroup.WithContext(context.TODO())
 
 	if len(args) == 0 {
