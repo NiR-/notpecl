@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -o nounset
+set -o errexit
+set -o pipefail
+[[ "${TRACE:-}" != "" ]] && set -o xtrace
+
+printerr() {
+    echo "${@}" >&2
+}
+
+get_assets_url() {
+    url="$(curl -s \
+        -u "${GH_USERNAME}:${GH_ACCESS_TOKEN}" \
+        "https://api.github.com/repos/NiR-/notpecl/releases/tags/${GIT_TAG}" \
+    | jq -r .assets_url)"
+
+    echo "${url/api.github.com/uploads.github.com}"
+}
+
+upload_bin() {
+    local assets_url="${1}"
+
+    curl -s \
+        -u "${GH_USERNAME}:${GH_ACCESS_TOKEN}" \
+        -H "Content-Type: application/octet-stream" \
+        --data-binary "@${NOTPECL_BIN}" \
+        "${assets_url}?name=notpecl-amd64"
+}
+
+#### MAIN function
+
+if [[ -z "${GIT_TAG:-}" ]] || [[ -z "${NOTPECL_BIN:-}" ]] || [[ -z "${GH_ACCESS_TOKEN:-}" ]]; then
+    printerr "Usage: GIT_TAG=vX.Y.X NOTPECL_BIN=.bin/notpecl $0"
+    exit 1
+fi
+
+assets_url="$(get_assets_url)"
+upload_bin "${assets_url}"
