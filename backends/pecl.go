@@ -236,7 +236,7 @@ func (b PeclBackend) extractFile(
 
 	os.MkdirAll(path.Dir(fullpath), 0750)
 
-	logrus.Debugf("Unpacking %s (%d bytes)...\n", fullpath, headers.Size)
+	logrus.Debugf("Unpacking %s (%d bytes)...", fullpath, headers.Size)
 	if err := ioutil.WriteFile(fullpath, filebuf.Bytes(), 0640); err != nil {
 		return err
 	}
