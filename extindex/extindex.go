@@ -92,6 +92,10 @@ func (s Stability) String() string {
 	}
 }
 
+func (s Stability) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
 const (
 	Unknown Stability = iota
 	Snapshot
