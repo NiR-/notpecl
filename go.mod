@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/go-test/deep v1.0.4
-	github.com/mattn/go-isatty v0.0.10
+	github.com/mattn/go-isatty v0.0.11
 	github.com/mcuadros/go-version v0.0.0-20190830083331-035f6764e8d2
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
