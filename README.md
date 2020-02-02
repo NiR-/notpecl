@@ -56,7 +56,7 @@ You can either download notpecl or compile it by yourself:
 
 ```bash
 wget -O /usr/local/sbin/notpecl https://storage.googleapis.com/notpecl/notpecl
-chmod +x /usr/ocal/sbin/notpecl
+chmod +x /usr/local/sbin/notpecl
 ```
 
 ###### 1b. Within a Dockerfile
