@@ -1,0 +1,9 @@
+*
+
+!backends/
+!cmd/
+!extindex/
+!ui/
+!go.mod
+!go.sum
+!main.go
