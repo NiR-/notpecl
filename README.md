@@ -1,19 +1,29 @@
 # notpecl
 
-`notpecl` is a little CLI tool to replace the deprecated `pecl` tool. See the
-[Why](#why) section below.
+`notpecl` is a little CLI tool to replace the deprecated `pecl` tool.
 
+* [Why?](#why)
 * [Usage](#usage)
 * [Install](#install)
-* [Why?](#why)
 * [Credits](#credits)
+
+## Why?
+
+The version versions of the official Docker image for PHP 7.4 did not include 
+`pecl` as this tool has been deprecated. However, as there were no working 
+replacement at this time, Docker maintainers decided to include `pecl` in 7.4
+images. See [this issue](https://github.com/docker-library/php/issues/846).
+
+Moreover, as I needed an easy way to resolve version constraints on PHP
+community extensions from a Go tool, [zbuild](https://github.com/NiR-/zbuild),
+the best seemed to build my own tool.
 
 ## Usage
 
-* `download`: Download and unpack extension archives (tgz with a package.xml) ;
-* `build`: Build an extension from its source code ;
 * `install`: Download and build an extension locally. This is the one you 
 probably want to use ;
+* `download`: Download and unpack extension archives (tgz with a package.xml) ;
+* `build`: Build an extension from its source code ;
 
 Like pecl, this tool has an interactive UI for config questions and also
 supports running in noninteractive mode.
@@ -79,10 +89,6 @@ You have to build it by yourself but a proper release will come soon:
 go get github.com/NiR-/notpecl
 go install github.com/NiR-/notpecl
 ```
-
-## Why?
-
-See https://github.com/docker-library/php/issues/846
 
 ## Credits
 

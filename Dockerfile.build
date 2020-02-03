@@ -1,0 +1,20 @@
+FROM golang:1.13-alpine
+
+WORKDIR /app
+COPY . .
+
+ARG VERSION
+ARG COMMIT_HASH
+
+RUN apk add --no-cache --virtual=.build gcc musl-dev && \
+    go build -buildmode pie \
+        -ldflags "\
+            -linkmode external \
+            -extldflags '-static' \
+            -w -s \
+            -X 'github.com/NiR-/notpecl/cmd.releaseVersion=${VERSION}' \
+            -X 'github.com/NiR-/notpecl/cmd.commitHash=${COMMIT_HASH}'" \
+        -tags 'osusergo netgo static_build' \
+        . && \
+    apk del .build
+ 

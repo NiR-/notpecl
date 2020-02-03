@@ -1,3 +1,4 @@
+NO_CACHE ?= --no-cache
 export GO111MODULE=on
 
 # Used by go linker at build time to set the variables needed for `notpecl version`.
@@ -10,6 +11,7 @@ else
 endif
 endif
 
+
 # Either use `gotest` if available (same as `go test` but with colors), or use
 # `go test`.
 GOTEST := go test
@@ -19,11 +21,16 @@ endif
 
 .PHONY: build
 build:
-	go build -o .bin/notpecl -buildmode pie -ldflags "\
-		-w -s \
-		-X 'github.com/NiR-/notpecl/cmd.releaseVersion=$(VERSION)' \
-		-X 'github.com/NiR-/notpecl/cmd.commitHash=$(GIT_SHA1)' \
-	" .
+	docker build $(NO_CACHE) \
+		-f Dockerfile.build \
+		-t notpecl \
+		--build-arg "VERSION=$(VERSION)" \
+		--build-arg "COMMIT_HASH=$(GIT_SHA1)" \
+		.
+	docker run --rm \
+		-v $(PWD)/.bin:/mnt \
+		notpecl \
+		cp notpecl /mnt/notpecl
 
 .PHONY: test
 test:

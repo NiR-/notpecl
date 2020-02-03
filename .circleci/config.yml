@@ -106,12 +106,11 @@ references:
       name: Build notpecl
       command: make build
 
-
   upload_bin_to_github_step: &upload_bin_to_github_step
     run:
       name: Upload notpecl binary to Github release
       command: |
-        GIT_TAG=${CIRCLE_TAG} NOTPECL_BIN=./notpecl make release
+        GIT_TAG=${CIRCLE_TAG} NOTPECL_BIN=.bin/notpecl make release
 
 jobs:
   test:
@@ -134,12 +133,6 @@ jobs:
     <<: *vm_machine
     steps:
       - <<: *checkout_step
-      - <<: *restore_cache_step
-      - <<: *install_newer_go_version
-      - <<: *fix_gopath_step
-      - <<: *create_gobin_step
-      - <<: *install_go_deps_step
-      - <<: *save_cache_step
       - <<: *build_notpecl_step
       - <<: *upload_bin_to_github_step
 
