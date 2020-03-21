@@ -7,7 +7,7 @@ services:
   - docker
 
 env:
-  - GO_BUILD="go build"
+  - GO_BUILD="go build" PHPCONFIG_PATH="/home/travis/.phpenv/shims/php-config"
 
 script:
   - make test

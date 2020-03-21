@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"strings"
 
-	"github.com/NiR-/notpecl/backends"
-	"github.com/NiR-/notpecl/extindex"
+	"github.com/NiR-/notpecl/pecl"
+	"github.com/NiR-/notpecl/peclapi"
 	"github.com/spf13/cobra"
+	"golang.org/x/xerrors"
 )
 
 var installFlags = struct {
@@ -23,7 +23,7 @@ func NewInstallCmd() *cobra.Command {
 		Use:               "install",
 		DisableAutoGenTag: true,
 		Short:             "install the given extensions",
-		Run:               runInstallCmd,
+		RunE:              runInstallCmd,
 	}
 
 	install.Flags().BoolVar(&installFlags.cleanup,
@@ -32,7 +32,7 @@ func NewInstallCmd() *cobra.Command {
 		"Remove source code and build files after installing the extension (enabled by default).")
 	install.Flags().StringVar(&installFlags.minimumStability,
 		"minimum-stability",
-		extindex.Stable.String(),
+		peclapi.Stable.String(),
 		"Minimum stability level to look for when resolving version constraints (default: stable, available: stable > beta > alpha > devel > snapshot)")
 	install.Flags().StringVar(&installFlags.installDir,
 		"install-dir",
@@ -43,12 +43,15 @@ func NewInstallCmd() *cobra.Command {
 	return install
 }
 
-func runInstallCmd(cmd *cobra.Command, args []string) {
-	np := backends.NewNotPeclBackend()
-	p := initPeclBackend(np, installFlags.installDir)
+func runInstallCmd(cmd *cobra.Command, args []string) error {
+	p := initPeclBackend()
 	ctx := context.Background()
 
-	stability := extindex.StabilityFromString(installFlags.minimumStability)
+	stability := peclapi.StabilityFromString(installFlags.minimumStability)
+	downloadDir, err := findDownloadDir()
+	if err != nil {
+		return xerrors.Errorf("failed to find where downloaded files should be written: %w", err)
+	}
 
 	for _, arg := range args {
 		segments := strings.SplitN(arg, ":", 2)
@@ -60,18 +63,24 @@ func runInstallCmd(cmd *cobra.Command, args []string) {
 
 		extVersion, err := p.ResolveConstraint(ctx, extName, extVerConstraint, stability)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
-		opts := backends.InstallOpts{
-			Name:          extName,
-			Version:       extVersion,
+		opts := pecl.InstallOpts{
+			DownloadOpts: pecl.DownloadOpts{
+				Extension:   extName,
+				Version:     extVersion,
+				DownloadDir: downloadDir,
+			},
 			ConfigureArgs: []string{},
 			Parallel:      findMaxParallelism(),
 			Cleanup:       installFlags.cleanup,
+			InstallDir:    installFlags.installDir,
 		}
 		if err := p.Install(ctx, opts); err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
+
+	return nil
 }

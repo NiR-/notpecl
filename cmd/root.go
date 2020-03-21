@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 
-	"github.com/NiR-/notpecl/backends"
+	"github.com/NiR-/notpecl/pecl"
 	"github.com/NiR-/notpecl/ui"
 	"github.com/mattn/go-isatty"
 	"github.com/sirupsen/logrus"
@@ -41,30 +40,18 @@ func NewRootCmd() *cobra.Command {
 	return root
 }
 
-func initPeclBackend(
-	np backends.NotPeclBackend,
-	installDir string,
-) backends.PeclBackend {
-	downloadDir, err := findDownloadDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	p, err := backends.NewPeclBackend(np, downloadDir, installDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func initPeclBackend() pecl.Backend {
+	opts := make([]pecl.BackendOpt, 0, 1)
 	if isatty.IsTerminal(os.Stdout.Fd()) {
 		interactiveUI := ui.NewInteractiveUI(os.Stdin, os.Stdout)
-		p = p.WithUI(interactiveUI)
+		opts = append(opts, pecl.WithUI(interactiveUI))
 	}
 
-	return p
+	return pecl.New(opts...)
 }
 
 func findDownloadDir() (string, error) {
-	dir := path.Join(os.TempDir(), "notpecl")
+	dir := filepath.Join(os.TempDir(), "notpecl")
 	_, err := os.Stat(dir)
 	if os.IsNotExist(err) {
 		err = os.Mkdir(dir, 0750)
