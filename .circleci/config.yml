@@ -8,7 +8,7 @@ references:
     environment:
       TEST_RESULTS_DIR: /home/circleci/test-results
       GO111MODULE: "on"
-      GO_ARCHIVE: go1.13.4.linux-amd64.tar.gz
+      GO_ARCHIVE: go1.14.1.linux-amd64.tar.gz
 
   checkout_step: &checkout_step
     checkout: {}
@@ -31,7 +31,7 @@ references:
 
   install_newer_go_version: &install_newer_go_version
     run:
-      name: Install newer version of Go (v1.13.4)
+      name: Install newer version of Go (v1.14)
       command: |
         # Remove previous version of Go
         sudo rm -rf /usr/local/go
