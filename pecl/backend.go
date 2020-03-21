@@ -22,7 +22,14 @@ import (
 	"golang.org/x/xerrors"
 )
 
-type Backend struct {
+type Backend interface {
+	ResolveConstraint(ctx context.Context, name, constraint string, minimumStability peclapi.Stability) (string, error)
+	Install(ctx context.Context, opts InstallOpts) error
+	Download(ctx context.Context, opts DownloadOpts) (string, error)
+	Build(ctx context.Context, opts BuildOpts) error
+}
+
+type backend struct {
 	ui        ui.UI
 	client    peclapi.Client
 	fs        vfs.FS
@@ -33,8 +40,8 @@ type Backend struct {
 // client, a default vfs.FS instance, a default command runner (used to compile
 // the extensions) and a non interactive UI. All these default values can be
 // changed through With*() functions.
-func New(opts ...BackendOpt) Backend {
-	b := Backend{
+func New(opts ...BackendOpt) backend {
+	b := backend{
 		ui:        ui.NewNonInteractiveUI(),
 		client:    peclapi.NewClient(),
 		fs:        vfs.HostOSFS,
@@ -47,12 +54,12 @@ func New(opts ...BackendOpt) Backend {
 	return b
 }
 
-type BackendOpt func(b *Backend)
+type BackendOpt func(b *backend)
 
 // WithUI returns a new BackendOpt that could be used with New() to change the
 // default ui.UI used.
 func WithUI(ui ui.UI) BackendOpt {
-	return func(b *Backend) {
+	return func(b *backend) {
 		b.ui = ui
 	}
 }
@@ -60,7 +67,7 @@ func WithUI(ui ui.UI) BackendOpt {
 // WithClient returns a new BackendOpt that could be used with New() to change
 // the default peclapi.Client used.
 func WithClient(client peclapi.Client) BackendOpt {
-	return func(b *Backend) {
+	return func(b *backend) {
 		b.client = client
 	}
 }
@@ -68,7 +75,7 @@ func WithClient(client peclapi.Client) BackendOpt {
 // WithFS returns a BackendOpt that could be used with New() to change the
 // default instance of vfs.FS to a custom instance.
 func WithFS(fs vfs.FS) BackendOpt {
-	return func(b *Backend) {
+	return func(b *backend) {
 		b.fs = fs
 	}
 }
@@ -76,7 +83,7 @@ func WithFS(fs vfs.FS) BackendOpt {
 // WithCmdRunner returns a BackendOpt that could be used with New() to change
 // the default instance of CmdRunner used by the backend.
 func WithCmdRunner(r CmdRunner) BackendOpt {
-	return func(b *Backend) {
+	return func(b *backend) {
 		b.cmdRunner = r
 	}
 }
@@ -85,7 +92,7 @@ func WithCmdRunner(r CmdRunner) BackendOpt {
 // Composer format and also the minimum stability accepted. It tries to find
 // a release of that extension that statifies the version constraint and the
 // minimum stability.
-func (b Backend) ResolveConstraint(
+func (b backend) ResolveConstraint(
 	ctx context.Context,
 	name,
 	constraint string,
@@ -128,7 +135,7 @@ type InstallOpts struct {
 	Cleanup bool
 }
 
-func (b Backend) Install(ctx context.Context, opts InstallOpts) error {
+func (b backend) Install(ctx context.Context, opts InstallOpts) error {
 	extDir, err := b.Download(ctx, opts.DownloadOpts)
 	if err != nil {
 		return err
@@ -164,7 +171,7 @@ type DownloadOpts struct {
 	DownloadDir string
 }
 
-func (b Backend) Download(
+func (b backend) Download(
 	ctx context.Context,
 	opts DownloadOpts,
 ) (string, error) {
@@ -208,7 +215,7 @@ func (b Backend) Download(
 	return extDir, nil
 }
 
-func (b Backend) extractFile(
+func (b backend) extractFile(
 	extDir string,
 	dirPrefix string,
 	tarr *tar.Reader,
@@ -277,7 +284,7 @@ type BuildOpts struct {
 	Parallel int
 }
 
-func (b Backend) Build(
+func (b backend) Build(
 	ctx context.Context,
 	opts BuildOpts,
 ) error {
@@ -336,7 +343,7 @@ func (b Backend) Build(
 	return nil
 }
 
-func (b Backend) buildStepPhpize(ctx context.Context, cmdRunner CmdRunner) error {
+func (b backend) buildStepPhpize(ctx context.Context, cmdRunner CmdRunner) error {
 	logrus.Debug("Running phpize...")
 
 	if err := cmdRunner.Run(ctx, "phpize"); err != nil {
@@ -346,7 +353,7 @@ func (b Backend) buildStepPhpize(ctx context.Context, cmdRunner CmdRunner) error
 	return nil
 }
 
-func (b Backend) buildStepConfigure(ctx context.Context, cmdRunner CmdRunner, opts BuildOpts, pkg peclpkg.Package) error {
+func (b backend) buildStepConfigure(ctx context.Context, cmdRunner CmdRunner, opts BuildOpts, pkg peclpkg.Package) error {
 	logrus.Debug("Running ./configure...")
 
 	phpConfigPath, err := exec.LookPath("php-config")
@@ -363,7 +370,7 @@ func (b Backend) buildStepConfigure(ctx context.Context, cmdRunner CmdRunner, op
 	return nil
 }
 
-func (b Backend) buildStepMake(ctx context.Context, cmdRunner CmdRunner) error {
+func (b backend) buildStepMake(ctx context.Context, cmdRunner CmdRunner) error {
 	logrus.Debug("Running make...")
 
 	if err := cmdRunner.Run(ctx, "make"); err != nil {
@@ -373,7 +380,7 @@ func (b Backend) buildStepMake(ctx context.Context, cmdRunner CmdRunner) error {
 	return nil
 }
 
-func (b Backend) buildStepMakeInstall(ctx context.Context, cmdRunner CmdRunner, installDir string) error {
+func (b backend) buildStepMakeInstall(ctx context.Context, cmdRunner CmdRunner, installDir string) error {
 	logrus.Debug("Running make install...")
 
 	installArgs := make([]string, 0, 2)
@@ -389,7 +396,7 @@ func (b Backend) buildStepMakeInstall(ctx context.Context, cmdRunner CmdRunner, 
 	return nil
 }
 
-func (b Backend) buildStepMakeClean(ctx context.Context, cmdRunner CmdRunner) error {
+func (b backend) buildStepMakeClean(ctx context.Context, cmdRunner CmdRunner) error {
 	logrus.Debug("Running make clean...")
 
 	if err := cmdRunner.Run(ctx, "make", "clean"); err != nil {
@@ -410,7 +417,7 @@ func lookupEnv(name, defaultVal string) string {
 	return val
 }
 
-func (b Backend) checkPackageDependencies(pkg peclpkg.Package) error {
+func (b backend) checkPackageDependencies(pkg peclpkg.Package) error {
 	logrus.Debug("Checking extension dependencies...")
 	if err := b.checkPHPVersion(pkg.Dependencies.Required.PHP); err != nil {
 		return err
@@ -439,7 +446,7 @@ func (b Backend) checkPackageDependencies(pkg peclpkg.Package) error {
 	return nil
 }
 
-func (b Backend) checkPHPVersion(extConstraint peclpkg.PHPConstraint) error {
+func (b backend) checkPHPVersion(extConstraint peclpkg.PHPConstraint) error {
 	cg := version.NewConstrainGroup()
 	if extConstraint.Min != "" {
 		cg.AddConstraint(version.NewConstrain(">=", extConstraint.Min))
@@ -470,7 +477,7 @@ func (b Backend) checkPHPVersion(extConstraint peclpkg.PHPConstraint) error {
 	return nil
 }
 
-func (b Backend) currentPHPVersion() (string, error) {
+func (b backend) currentPHPVersion() (string, error) {
 	var outbuf bytes.Buffer
 	cmd := exec.Command("php", "-r", "echo json_encode(PHP_VERSION);")
 	cmd.Stdout = &outbuf
@@ -487,7 +494,7 @@ func (b Backend) currentPHPVersion() (string, error) {
 	return phpVersion, nil
 }
 
-func (b Backend) isExtensionEnabled(name string) (bool, error) {
+func (b backend) isExtensionEnabled(name string) (bool, error) {
 	var outbuf bytes.Buffer
 	cmd := exec.Command(
 		"php", "-r",
