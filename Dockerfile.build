@@ -1,12 +1,15 @@
-FROM golang:1.13-alpine
+FROM golang:1.13-alpine3.11
 
 WORKDIR /app
-COPY . .
+COPY . /app
 
 ARG VERSION
 ARG COMMIT_HASH
 
-RUN apk add --no-cache --virtual=.build gcc musl-dev && \
+RUN apk add --no-cache --virtual=.build  \
+        gcc=9.2.0-r4 \
+        git=2.24.1-r0 \
+        musl-dev=1.1.24-r1 && \
     go build -buildmode pie \
         -ldflags "\
             -linkmode external \
@@ -14,7 +17,7 @@ RUN apk add --no-cache --virtual=.build gcc musl-dev && \
             -w -s \
             -X 'github.com/NiR-/notpecl/cmd.releaseVersion=${VERSION}' \
             -X 'github.com/NiR-/notpecl/cmd.commitHash=${COMMIT_HASH}'" \
-        -tags 'osusergo netgo static_build' \
+        -tags 'netgo static_build' \
         . && \
     apk del .build
  

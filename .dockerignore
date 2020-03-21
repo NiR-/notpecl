@@ -1,9 +1,13 @@
 *
 
-!backends/
-!cmd/
-!extindex/
-!ui/
+
+!cmd/*.go
+!pecl/*.go
+!peclapi/*.go
+!peclpkg/*.go
+!ui/*.go
 !go.mod
 !go.sum
 !main.go
+
+*/*_test.go

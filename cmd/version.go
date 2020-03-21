@@ -8,7 +8,7 @@ import (
 
 var (
 	// These two variables are defined at compile-time by a flag passed to the
-	// go linker (see the Makefile).
+	// go linker (see Dockerfile.build).
 	releaseVersion string
 	commitHash     string
 )
