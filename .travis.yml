@@ -1,0 +1,17 @@
+language: go
+
+go:
+  - "1.14"
+
+services:
+  - docker
+
+env:
+  - GO_BUILD="go build"
+
+script:
+  - make test
+
+cache:
+  directories:
+    - /home/travis/gopath/pkg
