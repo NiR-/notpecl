@@ -8,18 +8,18 @@ references:
     environment:
       TEST_RESULTS_DIR: /home/circleci/test-results
       GO111MODULE: "on"
-      GO_ARCHIVE: go1.13.4.linux-amd64.tar.gz
+      GO_ARCHIVE: go1.14.1.linux-amd64.tar.gz
 
   checkout_step: &checkout_step
     checkout: {}
 
   save_full_cache_step: &save_cache_step
     save_cache:
-      key: v9-go-pkg-cache-{{ checksum "go.sum" }}
+      key: v10-go-pkg-cache-{{ checksum "go.sum" }}
       paths:
         # Put the newer version of Golang and NodeJS retrieved at the beginning
         # in the cache to not download them at each build.
-        - /tmp/go1.13.4.linux-amd64.tar.gz
+        - /tmp/go1.14.1.linux-amd64.tar.gz
         # Used by Go Modules
         - "~/go/pkg/mod"
         - "~/go/src/github.com/jstemmer/go-junit-report"
@@ -27,11 +27,11 @@ references:
   restore_full_cache_step: &restore_cache_step
     restore_cache:
       keys:
-        - v9-go-pkg-cache-{{ checksum "go.sum" }}
+        - v10-go-pkg-cache-{{ checksum "go.sum" }}
 
   install_newer_go_version: &install_newer_go_version
     run:
-      name: Install newer version of Go (v1.13.4)
+      name: Install newer version of Go (v1.14.1)
       command: |
         # Remove previous version of Go
         sudo rm -rf /usr/local/go

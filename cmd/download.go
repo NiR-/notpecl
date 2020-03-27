@@ -2,14 +2,14 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"strings"
 
-	"github.com/NiR-/notpecl/backends"
-	"github.com/NiR-/notpecl/extindex"
+	"github.com/NiR-/notpecl/pecl"
+	"github.com/NiR-/notpecl/peclapi"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/xerrors"
 )
 
 var downloadFlags = struct {
@@ -21,28 +21,31 @@ func NewDownloadCmd() *cobra.Command {
 		Use:               "download <extension[:constraint]> ...",
 		DisableAutoGenTag: true,
 		Short:             "download the given extensions and optionally unpack them",
-		Run:               runDownloadCmd,
+		RunE:              runDownloadCmd,
 	}
 
 	download.Flags().StringVar(&downloadFlags.minimumStability,
 		"minimum-stability",
-		string(extindex.Stable),
+		string(peclapi.Stable),
 		"Minimum stability level to look for when resolving version constraints (default: stable, available: stable > beta > alpha > devel > snapshot)",
 	)
 
 	return download
 }
 
-func runDownloadCmd(cmd *cobra.Command, args []string) {
-	np := backends.NewNotPeclBackend()
-	p := initPeclBackend(np, "")
-	eg, ctx := errgroup.WithContext(context.TODO())
+func runDownloadCmd(cmd *cobra.Command, args []string) error {
+	p := initPeclBackend()
 
 	if len(args) == 0 {
-		logrus.Fatal("You have to provide at least one extension.")
+		return xerrors.Errorf("you have to provide at least one extension")
 	}
 
-	stability := extindex.StabilityFromString(downloadFlags.minimumStability)
+	eg, ctx := errgroup.WithContext(context.TODO())
+	stability := peclapi.StabilityFromString(downloadFlags.minimumStability)
+	downloadDir, err := findDownloadDir()
+	if err != nil {
+		return xerrors.Errorf("failed to find where downloaded files should be written: %w", err)
+	}
 
 	for i := range args {
 		ext := args[i]
@@ -59,7 +62,12 @@ func runDownloadCmd(cmd *cobra.Command, args []string) {
 				return err
 			}
 
-			extDir, err := p.Download(ctx, name, version)
+			opts := pecl.DownloadOpts{
+				Extension:   name,
+				Version:     version,
+				DownloadDir: downloadDir,
+			}
+			extDir, err := p.Download(ctx, opts)
 			if err != nil {
 				return err
 			}
@@ -69,7 +77,5 @@ func runDownloadCmd(cmd *cobra.Command, args []string) {
 		})
 	}
 
-	if err := eg.Wait(); err != nil {
-		log.Fatal(err)
-	}
+	return eg.Wait()
 }

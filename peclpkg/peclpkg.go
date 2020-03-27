@@ -1,4 +1,4 @@
-package backends
+package peclpkg
 
 import (
 	"bytes"
@@ -11,6 +11,8 @@ import (
 	"golang.org/x/text/transform"
 )
 
+// LoadPackageXMLFromFile loads the XML file at xmlpath and converts it into a
+// Package struct.
 func LoadPackageXMLFromFile(xmlpath string) (Package, error) {
 	raw, err := ioutil.ReadFile(xmlpath)
 	if err != nil {
@@ -21,6 +23,8 @@ func LoadPackageXMLFromFile(xmlpath string) (Package, error) {
 	return LoadPackageXML(rawr)
 }
 
+// LoadPackageXML reads an XML file from the given io.Reader and transforms it
+// into a Package struct.
 func LoadPackageXML(r io.Reader) (Package, error) {
 	decoder := xml.NewDecoder(r)
 	decoder.CharsetReader = charsetReader
@@ -41,6 +45,7 @@ func charsetReader(charset string, input io.Reader) (io.Reader, error) {
 	return transform.NewReader(input, enc.NewDecoder()), nil
 }
 
+// Package represents a package.xml file.
 type Package struct {
 	Name          string           `xml:"name"`
 	Summary       string           `xml:"summary"`
@@ -57,10 +62,13 @@ type Package struct {
 	Changelog     Changelog        `xml:"changelog"`
 }
 
+// Changelog contains all the releases of a specific Package.
 type Changelog struct {
 	Releases []Release `xml:"release"`
 }
 
+// Release contains all the metadata about a single release as provided by
+// package.xml files.
 type Release struct {
 	Date      string           `xml:"date"`
 	Time      string           `xml:"time"`

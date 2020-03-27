@@ -25,7 +25,10 @@ func NewInteractiveUI(in io.Reader, out io.Writer) UI {
 
 func (ui interactive) Prompt(question, defaultVal string) (string, error) {
 	qline := fmt.Sprintf("%s [%s]: ", question, defaultVal)
-	ui.out.Write([]byte(qline))
+	_, err := ui.out.Write([]byte(qline))
+	if err != nil {
+		return "", err
+	}
 
 	r := bufio.NewReader(ui.in)
 	val, err := r.ReadString('\n')

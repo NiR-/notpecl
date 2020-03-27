@@ -1,15 +1,15 @@
-package backends_test
+package peclpkg_test
 
 import (
 	"testing"
 
-	"github.com/NiR-/notpecl/backends"
+	"github.com/NiR-/notpecl/peclpkg"
 	"github.com/go-test/deep"
 )
 
 type loadTC struct {
 	file        string
-	expected    backends.Package
+	expected    peclpkg.Package
 	expectedErr error
 }
 
@@ -17,34 +17,34 @@ func TestLoadPackageXMLFromFile(t *testing.T) {
 	testcases := map[string]loadTC{
 		"successfully load package.xml for redis ext": {
 			file: "testdata/package-redis.xml",
-			expected: backends.Package{
+			expected: peclpkg.Package{
 				Name:        "redis",
 				Summary:     "PHP extension for interfacing with Redis",
 				Description: "This extension provides an API for communicating with Redis servers.",
 				PublishDate: "2019-11-11",
 				PublishTime: "07:36:41",
-				Version: backends.Version{
+				Version: peclpkg.Version{
 					Release: "5.1.1",
 					API:     "5.1.0",
 				},
-				Stability: backends.PackageStability{
-					Release: backends.Stable,
-					API:     backends.Stable,
+				Stability: peclpkg.PackageStability{
+					Release: peclpkg.Stable,
+					API:     peclpkg.Stable,
 				},
-				License: backends.License{
+				License: peclpkg.License{
 					Name: "PHP",
 					URI:  "http://www.php.net/license",
 				},
-				Dependencies: backends.Dependencies{
-					Required: backends.RequiredDependencies{
-						PHP: backends.PHPConstraint{
+				Dependencies: peclpkg.Dependencies{
+					Required: peclpkg.RequiredDependencies{
+						PHP: peclpkg.PHPConstraint{
 							Min: "7.0.0",
 							Max: "7.9.99",
 						},
 					},
 				},
-				ExtSrcRelease: backends.ExtSrcRelease{
-					ConfigureOptions: []backends.ConfigureOption{
+				ExtSrcRelease: peclpkg.ExtSrcRelease{
+					ConfigureOptions: []peclpkg.ConfigureOption{
 						{
 							Name:    "enable-redis-igbinary",
 							Default: "no",
@@ -62,14 +62,14 @@ func TestLoadPackageXMLFromFile(t *testing.T) {
 						},
 					},
 				},
-				Changelog: backends.Changelog{
-					Releases: []backends.Release{
+				Changelog: peclpkg.Changelog{
+					Releases: []peclpkg.Release{
 						{
-							Stability: backends.PackageStability{
-								Release: backends.Stable,
-								API:     backends.Stable,
+							Stability: peclpkg.PackageStability{
+								Release: peclpkg.Stable,
+								API:     peclpkg.Stable,
 							},
-							Version: backends.Version{
+							Version: peclpkg.Version{
 								Release: "5.1.1",
 								API:     "5.1.0",
 							},
@@ -90,7 +90,7 @@ This release contains only bugfix for unix-socket connection.
 	}
 
 	for _, tc := range testcases {
-		out, err := backends.LoadPackageXMLFromFile(tc.file)
+		out, err := peclpkg.LoadPackageXMLFromFile(tc.file)
 		if tc.expectedErr != nil {
 			if err == nil {
 				t.Fatalf("Expected error: %v\nGot: <nil>", tc.expectedErr)
