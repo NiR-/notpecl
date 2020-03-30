@@ -32,6 +32,10 @@ build:
 		notpecl \
 		cp notpecl /mnt/notpecl
 
+.PHONY: install
+install:
+	cp .bin/notpecl ~/go/bin/
+
 .PHONY: test
 test:
 	$(GOTEST) -cover -coverprofile cover.out ./...
