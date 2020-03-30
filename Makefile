@@ -50,3 +50,7 @@ ifeq ($(NOTPECL_BIN),)
 	$(error You have to provide the path to notpecl binary)
 endif
 	./.circleci/upload_bin_to_github
+
+.PHONY: gen-mocks
+gen-mocks:
+	go generate ./...
