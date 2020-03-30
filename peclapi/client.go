@@ -8,9 +8,11 @@ package peclapi
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"sort"
 
@@ -356,7 +358,12 @@ func (c Client) DownloadRelease(release Release) (io.Reader, error) {
 		return nil, xerrors.Errorf("could not download %s v%s: expected status code 200, got %d", release.Package, release.Version, resp.StatusCode)
 	}
 
-	rawr := bufio.NewReaderSize(resp.Body, int(resp.ContentLength))
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, xerrors.Errorf("could not download %s v%s: %w", release.Package, release.Version, err)
+	}
+
+	rawr := bufio.NewReaderSize(bytes.NewReader(body), int(resp.ContentLength))
 	testBytes, err := rawr.Peek(64)
 	if err != nil {
 		return nil, xerrors.Errorf("could not peek the first 64 bytes of the downloaded file: %w", err)
