@@ -255,6 +255,7 @@ func initSuccessfullyInstallZipTC(t *testing.T) installTC {
 				DownloadDir: "/tmp",
 			},
 			InstallDir: "/installdir",
+			Cleanup:    true,
 		},
 		expectedCmds: []string{
 			"phpize",
@@ -284,6 +285,7 @@ func initSuccessfullyInstallRedisWithArgsTC(t *testing.T) installTC {
 			},
 			ConfigureArgs: []string{"--enable-redis-lzf"},
 			InstallDir:    "/installdir",
+			Cleanup:       true,
 		},
 		expectedCmds: []string{
 			"phpize",

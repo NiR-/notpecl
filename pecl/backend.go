@@ -147,6 +147,7 @@ func (b backend) Install(ctx context.Context, opts InstallOpts) error {
 		PackageXmlPath: filepath.Join(extDir, "package.xml"),
 		ConfigureArgs:  opts.ConfigureArgs,
 		Parallel:       opts.Parallel,
+		Cleanup:        opts.Cleanup,
 	}
 	if err := b.Build(ctx, buildOpts); err != nil {
 		return xerrors.Errorf("failed to install %s: %w", opts.DownloadOpts.Extension, err)
@@ -282,6 +283,8 @@ type BuildOpts struct {
 	ConfigureArgs []string
 	// Parallel is the maximum number of parallel jobs executed by make at once.
 	Parallel int
+	// Cleanup indicates whether make clean should be run.
+	Cleanup bool
 }
 
 func (b backend) Build(
@@ -336,8 +339,10 @@ func (b backend) Build(
 		return err
 	}
 
-	if err := b.buildStepMakeClean(ctx, cmdRunner); err != nil {
-		return err
+	if opts.Cleanup {
+		if err := b.buildStepMakeClean(ctx, cmdRunner); err != nil {
+			return err
+		}
 	}
 
 	return nil
