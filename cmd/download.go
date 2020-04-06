@@ -13,6 +13,7 @@ import (
 )
 
 var downloadFlags = struct {
+	downloadDir      string
 	minimumStability string
 }{}
 
@@ -24,6 +25,10 @@ func NewDownloadCmd() *cobra.Command {
 		RunE:              runDownloadCmd,
 	}
 
+	download.Flags().StringVar(&downloadFlags.downloadDir,
+		"download-dir",
+		"",
+		"Directory where the extensions should be downloaded and compiled (defaults to a temporary directory).")
 	download.Flags().StringVar(&downloadFlags.minimumStability,
 		"minimum-stability",
 		string(peclapi.Stable),
@@ -42,9 +47,12 @@ func runDownloadCmd(cmd *cobra.Command, args []string) error {
 
 	eg, ctx := errgroup.WithContext(context.TODO())
 	stability := peclapi.StabilityFromString(downloadFlags.minimumStability)
-	downloadDir, err := findDownloadDir()
-	if err != nil {
-		return xerrors.Errorf("failed to find where downloaded files should be written: %w", err)
+	downloadDir := downloadFlags.downloadDir
+	if downloadDir == "" {
+		var err error
+		if downloadDir, err = resolveTmpDownloadDir(); err != nil {
+			return xerrors.Errorf("failed to find where downloaded files should be written: %w", err)
+		}
 	}
 
 	for i := range args {
