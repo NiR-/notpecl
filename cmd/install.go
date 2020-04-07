@@ -13,6 +13,7 @@ import (
 var installFlags = struct {
 	cleanup          bool
 	minimumStability string
+	downloadDir      string
 	installDir       string
 }{
 	cleanup: true,
@@ -34,6 +35,10 @@ func NewInstallCmd() *cobra.Command {
 		"minimum-stability",
 		peclapi.Stable.String(),
 		"Minimum stability level to look for when resolving version constraints (default: stable, available: stable > beta > alpha > devel > snapshot)")
+	install.Flags().StringVar(&installFlags.downloadDir,
+		"download-dir",
+		"",
+		"Directory where the extensions should be downloaded and compiled (defaults to a temporary directory).")
 	install.Flags().StringVar(&installFlags.installDir,
 		"install-dir",
 		"",
@@ -48,9 +53,12 @@ func runInstallCmd(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	stability := peclapi.StabilityFromString(installFlags.minimumStability)
-	downloadDir, err := findDownloadDir()
-	if err != nil {
-		return xerrors.Errorf("failed to find where downloaded files should be written: %w", err)
+	downloadDir := installFlags.downloadDir
+	if downloadDir == "" {
+		var err error
+		if downloadDir, err = resolveTmpDownloadDir(); err != nil {
+			return xerrors.Errorf("failed to find where downloaded files should be written: %w", err)
+		}
 	}
 
 	for _, arg := range args {

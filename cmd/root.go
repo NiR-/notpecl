@@ -50,7 +50,7 @@ func initPeclBackend() pecl.Backend {
 	return pecl.New(opts...)
 }
 
-func findDownloadDir() (string, error) {
+func resolveTmpDownloadDir() (string, error) {
 	dir := filepath.Join(os.TempDir(), "notpecl")
 	_, err := os.Stat(dir)
 	if os.IsNotExist(err) {

@@ -12,10 +12,9 @@ import (
 )
 
 var buildFlags = struct {
-	xml string
-}{
-	xml: "",
-}
+	xml     string
+	cleanup bool
+}{}
 
 func NewBuildCmd() *cobra.Command {
 	build := &cobra.Command{
@@ -27,6 +26,10 @@ func NewBuildCmd() *cobra.Command {
 	}
 
 	build.Flags().StringVar(&buildFlags.xml, "xml", "", "Path to the package.xml file relative to the given source path.")
+	build.Flags().BoolVar(&buildFlags.cleanup,
+		"cleanup",
+		true,
+		"Remove build files after building the extension (enabled by default).")
 
 	return build
 }
@@ -55,6 +58,7 @@ func runBuildCmd(cmd *cobra.Command, args []string) error {
 		PackageXmlPath: buildFlags.xml,
 		ConfigureArgs:  []string{},
 		Parallel:       findMaxParallelism(),
+		Cleanup:        buildFlags.cleanup,
 	}
 	opts.ConfigureArgs = args
 

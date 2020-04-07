@@ -175,9 +175,9 @@ func initSuccessfullyDownloadZipV1155TC(t *testing.T) peclDownloadTC {
 			Version:     "1.15.5",
 			DownloadDir: "/tmp",
 		},
-		expected: "/tmp/zip",
+		expected: "/tmp/zip-1.15.5",
 		fsTests: []interface{}{
-			vfst.TestPath("/tmp/zip", vfst.TestIsDir),
+			vfst.TestPath("/tmp/zip-1.15.5", vfst.TestIsDir),
 		},
 	}
 }
@@ -255,6 +255,7 @@ func initSuccessfullyInstallZipTC(t *testing.T) installTC {
 				DownloadDir: "/tmp",
 			},
 			InstallDir: "/installdir",
+			Cleanup:    true,
 		},
 		expectedCmds: []string{
 			"phpize",
@@ -284,6 +285,7 @@ func initSuccessfullyInstallRedisWithArgsTC(t *testing.T) installTC {
 			},
 			ConfigureArgs: []string{"--enable-redis-lzf"},
 			InstallDir:    "/installdir",
+			Cleanup:       true,
 		},
 		expectedCmds: []string{
 			"phpize",
