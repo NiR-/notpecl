@@ -176,6 +176,12 @@ func (b backend) Download(
 	ctx context.Context,
 	opts DownloadOpts,
 ) (string, error) {
+	dirPrefix := fmt.Sprintf("%s-%s/", opts.Extension, opts.Version)
+	extDir := filepath.Join(opts.DownloadDir, dirPrefix)
+	if _, err := b.fs.Stat(extDir); err == nil {
+		return extDir, nil
+	}
+
 	release, err := b.client.DescribeRelease(opts.Extension, opts.Version)
 	if err != nil {
 		return "", xerrors.Errorf("failed to download %s v%s: %w", opts.Extension, opts.Version, err)
@@ -192,8 +198,6 @@ func (b backend) Download(
 	}
 	defer gzipr.Close()
 
-	extDir := filepath.Join(opts.DownloadDir, opts.Extension)
-	dirPrefix := fmt.Sprintf("%s-%s/", opts.Extension, opts.Version)
 	tarr := tar.NewReader(gzipr)
 
 	for {
@@ -304,13 +308,6 @@ func (b backend) Build(
 		return xerrors.Errorf("failed to load package.xml: %v", err)
 	}
 
-	if err := b.checkPackageDependencies(pkg); err != nil {
-		return err
-	}
-	if err := askAboutMissingArgs(b.ui, pkg, &opts); err != nil {
-		return err
-	}
-
 	sourceDir, err := b.fs.RawPath(opts.SourceDir)
 	if err != nil {
 		return xerrors.Errorf("failed to build %s: %w", pkg.Name, err)
@@ -323,16 +320,26 @@ func (b backend) Build(
 		"LDFLAGS=" + lookupEnv("PHP_LDFLAGS", defaultLdflags),
 	})
 
-	if err := b.buildStepPhpize(ctx, cmdRunner); err != nil {
-		return err
-	}
+	modulePath := filepath.Join(opts.SourceDir, fmt.Sprintf("modules/%s.so", pkg.Name))
+	if _, err := b.fs.Stat(modulePath); os.IsNotExist(err) {
+		if err := b.checkPackageDependencies(pkg); err != nil {
+			return err
+		}
+		if err := askAboutMissingArgs(b.ui, pkg, &opts); err != nil {
+			return err
+		}
 
-	if err := b.buildStepConfigure(ctx, cmdRunner, opts, pkg); err != nil {
-		return err
-	}
+		if err := b.buildStepPhpize(ctx, cmdRunner); err != nil {
+			return err
+		}
 
-	if err := b.buildStepMake(ctx, cmdRunner); err != nil {
-		return err
+		if err := b.buildStepConfigure(ctx, cmdRunner, opts, pkg); err != nil {
+			return err
+		}
+
+		if err := b.buildStepMake(ctx, cmdRunner); err != nil {
+			return err
+		}
 	}
 
 	if err := b.buildStepMakeInstall(ctx, cmdRunner, opts.InstallDir); err != nil {
