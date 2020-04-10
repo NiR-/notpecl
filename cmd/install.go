@@ -24,7 +24,7 @@ func NewInstallCmd() *cobra.Command {
 		Use:               "install",
 		DisableAutoGenTag: true,
 		Short:             "install the given extensions",
-		RunE:              runInstallCmd,
+		Run:               run(runInstallCmd),
 	}
 
 	install.Flags().BoolVar(&installFlags.cleanup,

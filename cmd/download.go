@@ -22,7 +22,7 @@ func NewDownloadCmd() *cobra.Command {
 		Use:               "download <extension[:constraint]> ...",
 		DisableAutoGenTag: true,
 		Short:             "download the given extensions and optionally unpack them",
-		RunE:              runDownloadCmd,
+		Run:               run(runDownloadCmd),
 	}
 
 	download.Flags().StringVar(&downloadFlags.downloadDir,

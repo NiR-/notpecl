@@ -22,7 +22,7 @@ func NewBuildCmd() *cobra.Command {
 		DisableFlagsInUseLine: true,
 		DisableAutoGenTag:     true,
 		Short:                 "Build an extension from the given path or the current directory if none provided",
-		RunE:                  runBuildCmd,
+		Run:                   run(runBuildCmd),
 	}
 
 	build.Flags().StringVar(&buildFlags.xml, "xml", "", "Path to the package.xml file relative to the given source path.")
