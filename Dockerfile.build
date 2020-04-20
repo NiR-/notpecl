@@ -7,9 +7,9 @@ ARG VERSION
 ARG COMMIT_HASH
 
 RUN apk add --no-cache --virtual=.build  \
-        gcc=9.2.0-r4 \
-        git=2.24.1-r0 \
-        musl-dev=1.1.24-r2 && \
+        gcc \
+        git \
+        musl-dev && \
     go build -buildmode pie \
         -ldflags "\
             -linkmode external \
@@ -17,7 +17,6 @@ RUN apk add --no-cache --virtual=.build  \
             -w -s \
             -X 'github.com/NiR-/notpecl/cmd.releaseVersion=${VERSION}' \
             -X 'github.com/NiR-/notpecl/cmd.commitHash=${COMMIT_HASH}'" \
-        -tags 'netgo static_build' \
-        . && \
+        -tags 'netgo static_build' . && \
     apk del .build
  
