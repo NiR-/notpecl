@@ -31,7 +31,7 @@ type Backend interface {
 
 type backend struct {
 	ui            ui.UI
-	client        peclapi.Client
+	apiClient     peclapi.Client
 	fs            vfs.FS
 	cmdexec       cmdexec.CmdExecutor
 	phpConfigPath string
@@ -43,10 +43,10 @@ type backend struct {
 // changed through With*() functions.
 func New(opts ...BackendOpt) backend {
 	b := backend{
-		ui:      ui.NewNonInteractiveUI(),
-		client:  peclapi.NewClient(),
-		fs:      vfs.HostOSFS,
-		cmdexec: cmdexec.NewExecutor(),
+		ui:        ui.NewNonInteractiveUI(),
+		apiClient: peclapi.NewClient(),
+		fs:        vfs.HostOSFS,
+		cmdexec:   cmdexec.NewExecutor(),
 	}
 	for _, opt := range opts {
 		opt(&b)
@@ -69,7 +69,7 @@ func WithUI(ui ui.UI) BackendOpt {
 // the default peclapi.Client used.
 func WithClient(client peclapi.Client) BackendOpt {
 	return func(b *backend) {
-		b.client = client
+		b.apiClient = client
 	}
 }
 
@@ -104,7 +104,7 @@ func (b backend) ResolveConstraint(
 	constraint string,
 	minimumStability peclapi.Stability,
 ) (string, error) {
-	extVersions, err := b.client.ListReleases(name)
+	extVersions, err := b.apiClient.ListReleases(name)
 	if err != nil {
 		return "", xerrors.Errorf("could not resolve constraint for %s: %w", name, err)
 	}
@@ -185,12 +185,12 @@ func (b backend) Download(opts DownloadOpts) (string, error) {
 		return extDir, nil
 	}
 
-	release, err := b.client.DescribeRelease(opts.Extension, opts.Version)
+	release, err := b.apiClient.DescribeRelease(opts.Extension, opts.Version)
 	if err != nil {
 		return "", xerrors.Errorf("failed to download %s v%s: %w", opts.Extension, opts.Version, err)
 	}
 
-	rawr, err := b.client.DownloadRelease(release)
+	rawr, err := b.apiClient.DownloadRelease(release)
 	if err != nil {
 		return "", xerrors.Errorf("failed to download %s v%s: %w", opts.Extension, opts.Version, err)
 	}
