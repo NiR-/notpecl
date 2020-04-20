@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
@@ -62,10 +61,8 @@ func runBuildCmd(cmd *cobra.Command, args []string) error {
 	}
 	opts.ConfigureArgs = args
 
-	ctx := context.TODO()
 	p := initPeclBackend()
-
-	return p.Build(ctx, opts)
+	return p.Build(opts)
 }
 
 func cwd() string {

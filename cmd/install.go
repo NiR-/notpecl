@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"strings"
 
 	"github.com/NiR-/notpecl/pecl"
@@ -50,7 +49,6 @@ func NewInstallCmd() *cobra.Command {
 
 func runInstallCmd(cmd *cobra.Command, args []string) error {
 	p := initPeclBackend()
-	ctx := context.Background()
 
 	stability := peclapi.StabilityFromString(installFlags.minimumStability)
 	downloadDir := installFlags.downloadDir
@@ -69,7 +67,7 @@ func runInstallCmd(cmd *cobra.Command, args []string) error {
 			extVerConstraint = segments[1]
 		}
 
-		extVersion, err := p.ResolveConstraint(ctx, extName, extVerConstraint, stability)
+		extVersion, err := p.ResolveConstraint(extName, extVerConstraint, stability)
 		if err != nil {
 			return err
 		}
@@ -85,7 +83,7 @@ func runInstallCmd(cmd *cobra.Command, args []string) error {
 			Cleanup:       installFlags.cleanup,
 			InstallDir:    installFlags.installDir,
 		}
-		if err := p.Install(ctx, opts); err != nil {
+		if err := p.Install(opts); err != nil {
 			return err
 		}
 	}
