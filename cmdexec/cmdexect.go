@@ -76,8 +76,15 @@ func NewTestExecutor() (CmdExecutor, *Recorder) {
 }
 
 func prefixCmdArgsWithMockbin(cmd *exec.Cmd) {
-	cmd.Path = os.Args[0]
-	cmd.Args = []string{os.Args[0], "-mockbin"}
+	// Create a new exec.Cmd to ignore any lookPathErr (happens when the
+	// mocked bin isn't installed).
+	new := exec.Command(os.Args[0], "-mockbin")
+	new.Env = cmd.Env
+	new.Dir = cmd.Dir
+	new.Stdout = cmd.Stdout
+	new.Stderr = cmd.Stderr
+
+	*cmd = *new
 }
 
 type Tester func(*testing.T, *Recorder)

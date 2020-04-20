@@ -30,10 +30,11 @@ type Backend interface {
 }
 
 type backend struct {
-	ui      ui.UI
-	client  peclapi.Client
-	fs      vfs.FS
-	cmdexec cmdexec.CmdExecutor
+	ui            ui.UI
+	client        peclapi.Client
+	fs            vfs.FS
+	cmdexec       cmdexec.CmdExecutor
+	phpConfigPath string
 }
 
 // New creates a new pecl backend with d default (and fully working) peclapi
@@ -85,6 +86,12 @@ func WithFS(fs vfs.FS) BackendOpt {
 func WithCmdExec(cmdexec cmdexec.CmdExecutor) BackendOpt {
 	return func(b *backend) {
 		b.cmdexec = cmdexec
+	}
+}
+
+func WithPhpConfigPath(phpConfigPath string) BackendOpt {
+	return func(b *backend) {
+		b.phpConfigPath = phpConfigPath
 	}
 }
 
@@ -363,18 +370,26 @@ func (b backend) buildStepPhpize(cmdexec cmdexec.CmdExecutor) error {
 func (b backend) buildStepConfigure(cmdexec cmdexec.CmdExecutor, opts BuildOpts, pkg peclpkg.Package) error {
 	logrus.Debug("Running ./configure...")
 
-	phpConfigPath, err := exec.LookPath("php-config")
-	if err != nil {
-		return xerrors.Errorf("failed to build %s: %w", pkg.Name, err)
+	if b.phpConfigPath == "" {
+		if err := b.resolvePhpConfigPath(); err != nil {
+			return xerrors.Errorf("failed to build %s: %w", pkg.Name, err)
+		}
 	}
-	args := append(opts.ConfigureArgs, "--with-php-config="+phpConfigPath)
 
-	err = cmdexec.Run("./configure", args...)
+	args := append(opts.ConfigureArgs, "--with-php-config="+b.phpConfigPath)
+	err := cmdexec.Run("./configure", args...)
 	if err != nil {
 		return xerrors.Errorf("failed to run configure: %v", err)
 	}
 
 	return nil
+}
+
+func (b backend) resolvePhpConfigPath() error {
+	var err error
+	b.phpConfigPath, err = exec.LookPath("php-config")
+
+	return err
 }
 
 func (b backend) buildStepMake(cmdexec cmdexec.CmdExecutor) error {

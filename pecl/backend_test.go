@@ -355,7 +355,8 @@ func TestInstall(t *testing.T) {
 			backend := pecl.New(
 				pecl.WithFS(fs),
 				pecl.WithClient(client),
-				pecl.WithCmdExec(tc.cmdExec))
+				pecl.WithCmdExec(tc.cmdExec),
+				pecl.WithPhpConfigPath(phpconfigPath))
 
 			err = backend.Install(tc.opts)
 			if tc.expectedErr != nil {
