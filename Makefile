@@ -35,7 +35,7 @@ install:
 
 .PHONY: test
 test:
-	$(GOTEST) -cover -coverprofile cover.out ./...
+	$(GOTEST) -count=1 -cover -coverprofile cover.out ./...
 	go tool cover -o cover.html -html=cover.out
 
 .PHONY: gendoc
