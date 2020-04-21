@@ -1,6 +1,3 @@
-NO_CACHE ?= --no-cache
-export GO111MODULE=on
-
 # Used by go linker at build time to set the variables needed for `notpecl version`.
 GIT_SHA1 := $(shell git rev-parse HEAD)
 ifeq ($(VERSION),)
@@ -21,7 +18,7 @@ endif
 
 .PHONY: build
 build:
-	docker build $(NO_CACHE) \
+	docker build \
 		-f Dockerfile.build \
 		-t notpecl \
 		--build-arg "VERSION=$(VERSION)" \
@@ -38,7 +35,7 @@ install:
 
 .PHONY: test
 test:
-	$(GOTEST) -cover -coverprofile cover.out ./...
+	$(GOTEST) -count=1 -cover -coverprofile cover.out ./...
 	go tool cover -o cover.html -html=cover.out
 
 .PHONY: gendoc

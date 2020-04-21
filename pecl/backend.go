@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/NiR-/notpecl/cmdexec"
 	"github.com/NiR-/notpecl/peclapi"
 	"github.com/NiR-/notpecl/peclpkg"
 	"github.com/NiR-/notpecl/ui"
@@ -23,17 +23,18 @@ import (
 )
 
 type Backend interface {
-	ResolveConstraint(ctx context.Context, name, constraint string, minimumStability peclapi.Stability) (string, error)
-	Install(ctx context.Context, opts InstallOpts) error
-	Download(ctx context.Context, opts DownloadOpts) (string, error)
-	Build(ctx context.Context, opts BuildOpts) error
+	ResolveConstraint(name, constraint string, minimumStability peclapi.Stability) (string, error)
+	Install(opts InstallOpts) error
+	Download(opts DownloadOpts) (string, error)
+	Build(opts BuildOpts) error
 }
 
 type backend struct {
-	ui        ui.UI
-	client    peclapi.Client
-	fs        vfs.FS
-	cmdRunner CmdRunner
+	ui            ui.UI
+	apiClient     peclapi.Client
+	fs            vfs.FS
+	cmdexec       cmdexec.CmdExecutor
+	phpConfigPath string
 }
 
 // New creates a new pecl backend with d default (and fully working) peclapi
@@ -43,9 +44,9 @@ type backend struct {
 func New(opts ...BackendOpt) backend {
 	b := backend{
 		ui:        ui.NewNonInteractiveUI(),
-		client:    peclapi.NewClient(),
+		apiClient: peclapi.NewClient(),
 		fs:        vfs.HostOSFS,
-		cmdRunner: NewCmdRunner(),
+		cmdexec:   cmdexec.NewExecutor(),
 	}
 	for _, opt := range opts {
 		opt(&b)
@@ -68,7 +69,7 @@ func WithUI(ui ui.UI) BackendOpt {
 // the default peclapi.Client used.
 func WithClient(client peclapi.Client) BackendOpt {
 	return func(b *backend) {
-		b.client = client
+		b.apiClient = client
 	}
 }
 
@@ -80,11 +81,17 @@ func WithFS(fs vfs.FS) BackendOpt {
 	}
 }
 
-// WithCmdRunner returns a BackendOpt that could be used with New() to change
-// the default instance of CmdRunner used by the backend.
-func WithCmdRunner(r CmdRunner) BackendOpt {
+// WithCmdExec returns a BackendOpt that could be used with New() to change
+// the default instance of CmdExec used by the backend.
+func WithCmdExec(cmdexec cmdexec.CmdExecutor) BackendOpt {
 	return func(b *backend) {
-		b.cmdRunner = r
+		b.cmdexec = cmdexec
+	}
+}
+
+func WithPhpConfigPath(phpConfigPath string) BackendOpt {
+	return func(b *backend) {
+		b.phpConfigPath = phpConfigPath
 	}
 }
 
@@ -93,12 +100,11 @@ func WithCmdRunner(r CmdRunner) BackendOpt {
 // a release of that extension that statifies the version constraint and the
 // minimum stability.
 func (b backend) ResolveConstraint(
-	ctx context.Context,
 	name,
 	constraint string,
 	minimumStability peclapi.Stability,
 ) (string, error) {
-	extVersions, err := b.client.ListReleases(name)
+	extVersions, err := b.apiClient.ListReleases(name)
 	if err != nil {
 		return "", xerrors.Errorf("could not resolve constraint for %s: %w", name, err)
 	}
@@ -135,8 +141,8 @@ type InstallOpts struct {
 	Cleanup bool
 }
 
-func (b backend) Install(ctx context.Context, opts InstallOpts) error {
-	extDir, err := b.Download(ctx, opts.DownloadOpts)
+func (b backend) Install(opts InstallOpts) error {
+	extDir, err := b.Download(opts.DownloadOpts)
 	if err != nil {
 		return err
 	}
@@ -149,7 +155,7 @@ func (b backend) Install(ctx context.Context, opts InstallOpts) error {
 		Parallel:       opts.Parallel,
 		Cleanup:        opts.Cleanup,
 	}
-	if err := b.Build(ctx, buildOpts); err != nil {
+	if err := b.Build(buildOpts); err != nil {
 		return xerrors.Errorf("failed to install %s: %w", opts.DownloadOpts.Extension, err)
 	}
 
@@ -172,22 +178,19 @@ type DownloadOpts struct {
 	DownloadDir string
 }
 
-func (b backend) Download(
-	ctx context.Context,
-	opts DownloadOpts,
-) (string, error) {
+func (b backend) Download(opts DownloadOpts) (string, error) {
 	dirPrefix := fmt.Sprintf("%s-%s/", opts.Extension, opts.Version)
 	extDir := filepath.Join(opts.DownloadDir, dirPrefix)
 	if _, err := b.fs.Stat(extDir); err == nil {
 		return extDir, nil
 	}
 
-	release, err := b.client.DescribeRelease(opts.Extension, opts.Version)
+	release, err := b.apiClient.DescribeRelease(opts.Extension, opts.Version)
 	if err != nil {
 		return "", xerrors.Errorf("failed to download %s v%s: %w", opts.Extension, opts.Version, err)
 	}
 
-	rawr, err := b.client.DownloadRelease(release)
+	rawr, err := b.apiClient.DownloadRelease(release)
 	if err != nil {
 		return "", xerrors.Errorf("failed to download %s v%s: %w", opts.Extension, opts.Version, err)
 	}
@@ -291,10 +294,7 @@ type BuildOpts struct {
 	Cleanup bool
 }
 
-func (b backend) Build(
-	ctx context.Context,
-	opts BuildOpts,
-) error {
+func (b backend) Build(opts BuildOpts) error {
 	var err error
 	logrus.Debugf("Loading %s...", opts.PackageXmlPath)
 
@@ -313,12 +313,14 @@ func (b backend) Build(
 		return xerrors.Errorf("failed to build %s: %w", pkg.Name, err)
 	}
 
-	cmdRunner := b.cmdRunner.WithBaseDir(sourceDir).WithExtraEnv([]string{
-		"PATH=" + lookupEnv("PATH", ""),
-		"CFLAGS=" + lookupEnv("PHP_CFLAGS", defaultCflags),
-		"CPPFLAGS=" + lookupEnv("PHP_CPPFLAGS", defaultCppflags),
-		"LDFLAGS=" + lookupEnv("PHP_LDFLAGS", defaultLdflags),
-	})
+	cmdexec := b.cmdexec.With(
+		cmdexec.BaseDir(sourceDir),
+		cmdexec.ExtraEnv([]string{
+			"PATH=" + lookupEnv("PATH", ""),
+			"CFLAGS=" + lookupEnv("PHP_CFLAGS", defaultCflags),
+			"CPPFLAGS=" + lookupEnv("PHP_CPPFLAGS", defaultCppflags),
+			"LDFLAGS=" + lookupEnv("PHP_LDFLAGS", defaultLdflags),
+		}))
 
 	modulePath := filepath.Join(opts.SourceDir, fmt.Sprintf("modules/%s.so", pkg.Name))
 	if _, err := b.fs.Stat(modulePath); os.IsNotExist(err) {
@@ -329,25 +331,25 @@ func (b backend) Build(
 			return err
 		}
 
-		if err := b.buildStepPhpize(ctx, cmdRunner); err != nil {
+		if err := b.buildStepPhpize(cmdexec); err != nil {
 			return err
 		}
 
-		if err := b.buildStepConfigure(ctx, cmdRunner, opts, pkg); err != nil {
+		if err := b.buildStepConfigure(cmdexec, opts, pkg); err != nil {
 			return err
 		}
 
-		if err := b.buildStepMake(ctx, cmdRunner); err != nil {
+		if err := b.buildStepMake(cmdexec); err != nil {
 			return err
 		}
 	}
 
-	if err := b.buildStepMakeInstall(ctx, cmdRunner, opts.InstallDir); err != nil {
+	if err := b.buildStepMakeInstall(cmdexec, opts.InstallDir); err != nil {
 		return err
 	}
 
 	if opts.Cleanup {
-		if err := b.buildStepMakeClean(ctx, cmdRunner); err != nil {
+		if err := b.buildStepMakeClean(cmdexec); err != nil {
 			return err
 		}
 	}
@@ -355,26 +357,27 @@ func (b backend) Build(
 	return nil
 }
 
-func (b backend) buildStepPhpize(ctx context.Context, cmdRunner CmdRunner) error {
+func (b backend) buildStepPhpize(cmdexec cmdexec.CmdExecutor) error {
 	logrus.Debug("Running phpize...")
 
-	if err := cmdRunner.Run(ctx, "phpize"); err != nil {
+	if err := cmdexec.Run("phpize"); err != nil {
 		return xerrors.Errorf("failed to run phpize: %v", err)
 	}
 
 	return nil
 }
 
-func (b backend) buildStepConfigure(ctx context.Context, cmdRunner CmdRunner, opts BuildOpts, pkg peclpkg.Package) error {
+func (b backend) buildStepConfigure(cmdexec cmdexec.CmdExecutor, opts BuildOpts, pkg peclpkg.Package) error {
 	logrus.Debug("Running ./configure...")
 
-	phpConfigPath, err := exec.LookPath("php-config")
-	if err != nil {
-		return xerrors.Errorf("failed to build %s: %w", pkg.Name, err)
+	if b.phpConfigPath == "" {
+		if err := b.resolvePhpConfigPath(); err != nil {
+			return xerrors.Errorf("failed to build %s: %w", pkg.Name, err)
+		}
 	}
-	args := append(opts.ConfigureArgs, "--with-php-config="+phpConfigPath)
 
-	err = cmdRunner.Run(ctx, "./configure", args...)
+	args := append(opts.ConfigureArgs, "--with-php-config="+b.phpConfigPath)
+	err := cmdexec.Run("./configure", args...)
 	if err != nil {
 		return xerrors.Errorf("failed to run configure: %v", err)
 	}
@@ -382,17 +385,24 @@ func (b backend) buildStepConfigure(ctx context.Context, cmdRunner CmdRunner, op
 	return nil
 }
 
-func (b backend) buildStepMake(ctx context.Context, cmdRunner CmdRunner) error {
+func (b backend) resolvePhpConfigPath() error {
+	var err error
+	b.phpConfigPath, err = exec.LookPath("php-config")
+
+	return err
+}
+
+func (b backend) buildStepMake(cmdexec cmdexec.CmdExecutor) error {
 	logrus.Debug("Running make...")
 
-	if err := cmdRunner.Run(ctx, "make"); err != nil {
+	if err := cmdexec.Run("make"); err != nil {
 		return xerrors.Errorf("failed to run make: %v", err)
 	}
 
 	return nil
 }
 
-func (b backend) buildStepMakeInstall(ctx context.Context, cmdRunner CmdRunner, installDir string) error {
+func (b backend) buildStepMakeInstall(cmdexec cmdexec.CmdExecutor, installDir string) error {
 	logrus.Debug("Running make install...")
 
 	installArgs := make([]string, 0, 2)
@@ -401,17 +411,17 @@ func (b backend) buildStepMakeInstall(ctx context.Context, cmdRunner CmdRunner, 
 	}
 	installArgs = append(installArgs, "install")
 
-	if err := cmdRunner.Run(ctx, "make", installArgs...); err != nil {
+	if err := cmdexec.Run("make", installArgs...); err != nil {
 		return xerrors.Errorf("failed to run make install: %v", err)
 	}
 
 	return nil
 }
 
-func (b backend) buildStepMakeClean(ctx context.Context, cmdRunner CmdRunner) error {
+func (b backend) buildStepMakeClean(cmdexec cmdexec.CmdExecutor) error {
 	logrus.Debug("Running make clean...")
 
-	if err := cmdRunner.Run(ctx, "make", "clean"); err != nil {
+	if err := cmdexec.Run("make", "clean"); err != nil {
 		return xerrors.Errorf("failed to run make clean: %v", err)
 	}
 
@@ -491,10 +501,10 @@ func (b backend) checkPHPVersion(extConstraint peclpkg.PHPConstraint) error {
 
 func (b backend) currentPHPVersion() (string, error) {
 	var outbuf bytes.Buffer
-	cmd := exec.Command("php", "-r", "echo json_encode(PHP_VERSION);")
-	cmd.Stdout = &outbuf
+	cmdexec := b.cmdexec.With(cmdexec.Stdout(&outbuf))
 
-	if err := cmd.Run(); err != nil {
+	err := cmdexec.Run("php", "-r", "echo json_encode(PHP_VERSION);")
+	if err != nil {
 		return "", err
 	}
 
@@ -508,11 +518,10 @@ func (b backend) currentPHPVersion() (string, error) {
 
 func (b backend) isExtensionEnabled(name string) (bool, error) {
 	var outbuf bytes.Buffer
-	cmd := exec.Command(
-		"php", "-r",
+	cmdexec := b.cmdexec.With(cmdexec.Stdout(&outbuf))
+	err := cmdexec.Run("php", "-r",
 		fmt.Sprintf("echo json_encode(extension_loaded('%s'));", name))
-	cmd.Stdout = &outbuf
-	if err := cmd.Run(); err != nil {
+	if err != nil {
 		return false, err
 	}
 

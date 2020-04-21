@@ -2,24 +2,25 @@ package pecl_test
 
 import (
 	"bytes"
-	"context"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 
+	"github.com/NiR-/notpecl/cmdexec"
 	"github.com/NiR-/notpecl/pecl"
 	"github.com/NiR-/notpecl/peclapi"
-	"github.com/go-test/deep"
 	"github.com/twpayne/go-vfs/vfst"
 )
 
 var phpconfigPath string
 
 func init() {
+	if cmdexec.IsMockbin() {
+		cmdexec.Mockbin()
+	}
+
 	phpconfigPath = os.Getenv("PHPCONFIG_PATH")
 	if phpconfigPath == "" {
 		phpconfigPath = "/usr/bin/php-config"
@@ -132,8 +133,7 @@ func TestResolveConstraint(t *testing.T) {
 			client := peclapi.NewClient(peclapi.WithHttpClient(tc.httpClient))
 			backend := pecl.New(pecl.WithClient(client))
 
-			ctx := context.Background()
-			resolved, err := backend.ResolveConstraint(ctx, tc.extension, tc.constraint, tc.minimumStability)
+			resolved, err := backend.ResolveConstraint(tc.extension, tc.constraint, tc.minimumStability)
 			if tc.expectedErr != nil {
 				if err == nil || tc.expectedErr.Error() != err.Error() {
 					t.Fatalf("Expected error: %v\nGot: %v", tc.expectedErr, err)
@@ -210,8 +210,7 @@ func TestDownload(t *testing.T) {
 				pecl.WithClient(client),
 				pecl.WithFS(fs))
 
-			ctx := context.Background()
-			outpath, err := backend.Download(ctx, tc.downloadOpts)
+			outpath, err := backend.Download(tc.downloadOpts)
 			if tc.expectedErr != nil {
 				if err == nil || err.Error() != tc.expectedErr.Error() {
 					t.Fatalf("Expected error: %v\nGot: %v", tc.expectedErr, err)
@@ -232,10 +231,12 @@ func TestDownload(t *testing.T) {
 }
 
 type installTC struct {
-	httpClient   *http.Client
-	opts         pecl.InstallOpts
-	expectedCmds []string
-	expectedErr  error
+	httpClient  *http.Client
+	cmdExec     cmdexec.CmdExecutor
+	recorder    *cmdexec.Recorder
+	cmdTester   cmdexec.Tester
+	opts        pecl.InstallOpts
+	expectedErr error
 }
 
 func initSuccessfullyInstallZipTC(t *testing.T) installTC {
@@ -246,8 +247,29 @@ func initSuccessfullyInstallZipTC(t *testing.T) installTC {
 		"https://pecl.php.net/get/zip-1.15.5.tgz":    tgz,
 	})
 
+	executor, recorder := cmdexec.NewTestExecutor()
+	executor = executor.With(
+		cmdexec.FakeOn([]string{"php", "-r", "echo json_encode(PHP_VERSION);"},
+			cmdexec.FakeStdout("\"7.4.3\"")),
+	)
+
+	cmdTester := cmdexec.BuildTesters(
+		cmdexec.ExpectCommandArgs([]string{"phpize"}),
+		cmdexec.ExpectCommandArgs([]string{
+			"./configure",
+			"--with-php-config=" + phpconfigPath}),
+		cmdexec.ExpectCommandArgs([]string{"make"}),
+		cmdexec.ExpectCommandArgs([]string{
+			"make",
+			"INSTALL_ROOT=/installdir",
+			"install"}),
+		cmdexec.ExpectCommandArgs([]string{"make", "clean"}))
+
 	return installTC{
 		httpClient: newTestClient(roundTripper),
+		cmdExec:    executor,
+		recorder:   recorder,
+		cmdTester:  cmdTester,
 		opts: pecl.InstallOpts{
 			DownloadOpts: pecl.DownloadOpts{
 				Extension:   "zip",
@@ -256,13 +278,6 @@ func initSuccessfullyInstallZipTC(t *testing.T) installTC {
 			},
 			InstallDir: "/installdir",
 			Cleanup:    true,
-		},
-		expectedCmds: []string{
-			"phpize",
-			"./configure --with-php-config=" + phpconfigPath,
-			"make",
-			"make INSTALL_ROOT=/installdir install",
-			"make clean",
 		},
 	}
 }
@@ -275,8 +290,31 @@ func initSuccessfullyInstallRedisWithArgsTC(t *testing.T) installTC {
 		"https://pecl.php.net/get/redis-5.1.1.tgz":    tgz,
 	})
 
+	executor, recorder := cmdexec.NewTestExecutor()
+	executor = executor.With(
+		cmdexec.FakeOn([]string{"php", "-r", "echo json_encode(PHP_VERSION);"},
+			cmdexec.FakeStdout("\"7.4.3\"")),
+	)
+	cmdTester := cmdexec.BuildTesters(
+		cmdexec.ExpectCommandArgs([]string{"phpize"}),
+		cmdexec.ExpectCommandArgs([]string{
+			"./configure",
+			"--enable-redis-lzf",
+			"--enable-redis-igbinary=no",
+			"--enable-redis-zstd=no",
+			"--with-php-config=" + phpconfigPath}),
+		cmdexec.ExpectCommandArgs([]string{"make"}),
+		cmdexec.ExpectCommandArgs([]string{
+			"make",
+			"INSTALL_ROOT=/installdir",
+			"install"}),
+		cmdexec.ExpectCommandArgs([]string{"make", "clean"}))
+
 	return installTC{
 		httpClient: newTestClient(roundTripper),
+		cmdExec:    executor,
+		recorder:   recorder,
+		cmdTester:  cmdTester,
 		opts: pecl.InstallOpts{
 			DownloadOpts: pecl.DownloadOpts{
 				Extension:   "redis",
@@ -287,36 +325,10 @@ func initSuccessfullyInstallRedisWithArgsTC(t *testing.T) installTC {
 			InstallDir:    "/installdir",
 			Cleanup:       true,
 		},
-		expectedCmds: []string{
-			"phpize",
-			"./configure --enable-redis-lzf --enable-redis-igbinary=no --enable-redis-zstd=no --with-php-config=" + phpconfigPath,
-			"make",
-			"make INSTALL_ROOT=/installdir install",
-			"make clean",
-		},
 	}
 }
-
-func mockbin() {
-	var args []string
-	for i, arg := range os.Args {
-		if arg == "--" {
-			args = os.Args[i+1:]
-			break
-		}
-	}
-
-	fmt.Println(strings.Join(args, " "))
-	os.Exit(0)
-}
-
-var flagMockbin = flag.Bool("mockbin", false, "Use this flag to mock a binary")
 
 func TestInstall(t *testing.T) {
-	if *flagMockbin {
-		mockbin()
-	}
-
 	testcases := map[string]func(*testing.T) installTC{
 		"successfully install zip v1.15.5":            initSuccessfullyInstallZipTC,
 		"successfully install redis v5.1.1 with args": initSuccessfullyInstallRedisWithArgsTC,
@@ -339,14 +351,14 @@ func TestInstall(t *testing.T) {
 			defer cleanup()
 
 			client := peclapi.NewClient(peclapi.WithHttpClient(tc.httpClient))
-			cmdRunner, cmdsOut := newTestCmdRunner(t)
+
 			backend := pecl.New(
 				pecl.WithFS(fs),
 				pecl.WithClient(client),
-				pecl.WithCmdRunner(cmdRunner))
+				pecl.WithCmdExec(tc.cmdExec),
+				pecl.WithPhpConfigPath(phpconfigPath))
 
-			ctx := context.Background()
-			err = backend.Install(ctx, tc.opts)
+			err = backend.Install(tc.opts)
 			if tc.expectedErr != nil {
 				if err == nil || err.Error() != tc.expectedErr.Error() {
 					t.Fatalf("Expected error: %v\nGot: %v", tc.expectedErr, err)
@@ -357,27 +369,7 @@ func TestInstall(t *testing.T) {
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			cmdsRan := strings.Split(
-				strings.Trim(cmdsOut.String(), "\n"),
-				"\n",
-			)
-			if diff := deep.Equal(cmdsRan, tc.expectedCmds); diff != nil {
-				t.Fatal(diff)
-			}
+			tc.cmdTester(t, tc.recorder)
 		})
 	}
-}
-
-func newTestCmdRunner(t *testing.T) (pecl.CmdRunner, *bytes.Buffer) {
-	out := &bytes.Buffer{}
-	cmdRunner := pecl.
-		NewCmdRunner().
-		WithOutWriter(out).
-		WithCmdMutator(func(cmd string, args []string) (string, []string) {
-			newcmd := os.Args[0]
-			newargs := []string{"-test.run", "^(TestInstall)$", "-mockbin", "--", cmd}
-			return newcmd, append(newargs, args...)
-		})
-
-	return cmdRunner, out
 }

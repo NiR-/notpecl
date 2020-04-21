@@ -67,3 +67,11 @@ func findMaxParallelism() int {
 	}
 	return numCPU
 }
+
+func run(fn func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if err := fn(cmd, args); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+}

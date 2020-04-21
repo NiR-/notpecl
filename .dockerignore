@@ -2,6 +2,7 @@
 
 
 !cmd/*.go
+!cmdexec/*.go
 !pecl/*.go
 !peclapi/*.go
 !peclpkg/*.go

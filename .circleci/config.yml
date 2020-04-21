@@ -67,16 +67,6 @@ references:
         # Install project dependencies
         go mod download
 
-  install_php_step: &install_php_step
-    run:
-      name: Install PHP
-      command: |
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y php7.0-cli php7.0-dev
-        wget -O libzstd-dev.deb http://mirrors.kernel.org/ubuntu/pool/main/libz/libzstd/libzstd-dev_1.3.8+dfsg-3_amd64.deb
-        wget -O libzstd1.deb http://mirrors.kernel.org/ubuntu/pool/main/libz/libzstd/libzstd1_1.3.8+dfsg-3_amd64.deb
-        sudo dpkg -i libzstd1.deb libzstd-dev.deb
-
   prepare_test_results_dir_step: &prepare_test_results_dir_step
     run:
       name: Prepare test results directory
@@ -123,7 +113,6 @@ jobs:
       - <<: *create_gobin_step
       - <<: *install_go_deps_step
       - <<: *save_cache_step
-      - <<: *install_php_step
       - <<: *prepare_test_results_dir_step
       - <<: *run_tests_step
       - <<: *store_artifacts_step

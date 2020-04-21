@@ -22,7 +22,7 @@ func NewDownloadCmd() *cobra.Command {
 		Use:               "download <extension[:constraint]> ...",
 		DisableAutoGenTag: true,
 		Short:             "download the given extensions and optionally unpack them",
-		RunE:              runDownloadCmd,
+		Run:               run(runDownloadCmd),
 	}
 
 	download.Flags().StringVar(&downloadFlags.downloadDir,
@@ -45,7 +45,7 @@ func runDownloadCmd(cmd *cobra.Command, args []string) error {
 		return xerrors.Errorf("you have to provide at least one extension")
 	}
 
-	eg, ctx := errgroup.WithContext(context.TODO())
+	eg, _ := errgroup.WithContext(context.TODO())
 	stability := peclapi.StabilityFromString(downloadFlags.minimumStability)
 	downloadDir := downloadFlags.downloadDir
 	if downloadDir == "" {
@@ -65,7 +65,7 @@ func runDownloadCmd(cmd *cobra.Command, args []string) error {
 				constraint = segments[1]
 			}
 
-			version, err := p.ResolveConstraint(ctx, name, constraint, stability)
+			version, err := p.ResolveConstraint(name, constraint, stability)
 			if err != nil {
 				return err
 			}
@@ -75,7 +75,7 @@ func runDownloadCmd(cmd *cobra.Command, args []string) error {
 				Version:     version,
 				DownloadDir: downloadDir,
 			}
-			extDir, err := p.Download(ctx, opts)
+			extDir, err := p.Download(opts)
 			if err != nil {
 				return err
 			}
