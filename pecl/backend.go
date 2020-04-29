@@ -315,6 +315,8 @@ func (b backend) Build(opts BuildOpts) error {
 
 	cmdexec := b.cmdexec.With(
 		cmdexec.BaseDir(sourceDir),
+		cmdexec.Stdout(os.Stdout),
+		cmdexec.Stderr(os.Stderr),
 		cmdexec.ExtraEnv([]string{
 			"PATH=" + lookupEnv("PATH", ""),
 			"CFLAGS=" + lookupEnv("PHP_CFLAGS", defaultCflags),
