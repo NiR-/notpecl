@@ -3,6 +3,9 @@ package cmdexec
 import (
 	"io"
 	"os/exec"
+	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 type CmdExecutor struct {
@@ -36,6 +39,7 @@ func (executor CmdExecutor) Run(name string, args ...string) error {
 		opt(cmd)
 	}
 
+	logrus.Debugf("Running %s...", strings.Join(cmd.Args, " "))
 	return cmd.Run()
 }
 
