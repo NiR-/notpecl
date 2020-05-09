@@ -315,6 +315,8 @@ func (b backend) Build(opts BuildOpts) error {
 
 	cmdexec := b.cmdexec.With(
 		cmdexec.BaseDir(sourceDir),
+		cmdexec.Stdout(os.Stdout),
+		cmdexec.Stderr(os.Stderr),
 		cmdexec.ExtraEnv([]string{
 			"PATH=" + lookupEnv("PATH", ""),
 			"CFLAGS=" + lookupEnv("PHP_CFLAGS", defaultCflags),
@@ -358,8 +360,6 @@ func (b backend) Build(opts BuildOpts) error {
 }
 
 func (b backend) buildStepPhpize(cmdexec cmdexec.CmdExecutor) error {
-	logrus.Debug("Running phpize...")
-
 	if err := cmdexec.Run("phpize"); err != nil {
 		return xerrors.Errorf("failed to run phpize: %v", err)
 	}
@@ -368,8 +368,6 @@ func (b backend) buildStepPhpize(cmdexec cmdexec.CmdExecutor) error {
 }
 
 func (b backend) buildStepConfigure(cmdexec cmdexec.CmdExecutor, opts BuildOpts, pkg peclpkg.Package) error {
-	logrus.Debug("Running ./configure...")
-
 	if b.phpConfigPath == "" {
 		if err := b.resolvePhpConfigPath(); err != nil {
 			return xerrors.Errorf("failed to build %s: %w", pkg.Name, err)
@@ -377,6 +375,7 @@ func (b backend) buildStepConfigure(cmdexec cmdexec.CmdExecutor, opts BuildOpts,
 	}
 
 	args := append(opts.ConfigureArgs, "--with-php-config="+b.phpConfigPath)
+
 	err := cmdexec.Run("./configure", args...)
 	if err != nil {
 		return xerrors.Errorf("failed to run configure: %v", err)
@@ -393,8 +392,6 @@ func (b backend) resolvePhpConfigPath() error {
 }
 
 func (b backend) buildStepMake(cmdexec cmdexec.CmdExecutor) error {
-	logrus.Debug("Running make...")
-
 	if err := cmdexec.Run("make"); err != nil {
 		return xerrors.Errorf("failed to run make: %v", err)
 	}
@@ -403,8 +400,6 @@ func (b backend) buildStepMake(cmdexec cmdexec.CmdExecutor) error {
 }
 
 func (b backend) buildStepMakeInstall(cmdexec cmdexec.CmdExecutor, installDir string) error {
-	logrus.Debug("Running make install...")
-
 	installArgs := make([]string, 0, 2)
 	if installDir != "" {
 		installArgs = append(installArgs, "INSTALL_ROOT="+installDir)
@@ -419,8 +414,6 @@ func (b backend) buildStepMakeInstall(cmdexec cmdexec.CmdExecutor, installDir st
 }
 
 func (b backend) buildStepMakeClean(cmdexec cmdexec.CmdExecutor) error {
-	logrus.Debug("Running make clean...")
-
 	if err := cmdexec.Run("make", "clean"); err != nil {
 		return xerrors.Errorf("failed to run make clean: %v", err)
 	}
