@@ -375,7 +375,6 @@ func (b backend) buildStepConfigure(cmdexec cmdexec.CmdExecutor, opts BuildOpts,
 	}
 
 	args := append(opts.ConfigureArgs, "--with-php-config="+b.phpConfigPath)
-
 	err := cmdexec.Run("./configure", args...)
 	if err != nil {
 		return xerrors.Errorf("failed to run configure: %v", err)
@@ -384,7 +383,7 @@ func (b backend) buildStepConfigure(cmdexec cmdexec.CmdExecutor, opts BuildOpts,
 	return nil
 }
 
-func (b backend) resolvePhpConfigPath() error {
+func (b *backend) resolvePhpConfigPath() error {
 	var err error
 	b.phpConfigPath, err = exec.LookPath("php-config")
 
