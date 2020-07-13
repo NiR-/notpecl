@@ -3,7 +3,7 @@ module github.com/NiR-/notpecl
 go 1.14
 
 require (
-	github.com/go-test/deep v1.0.6
+	github.com/go-test/deep v1.0.7
 	github.com/golang/mock v1.4.3
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mcuadros/go-version v0.0.0-20190830083331-035f6764e8d2
