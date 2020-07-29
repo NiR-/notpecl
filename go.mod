@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/go-test/deep v1.0.6
-	github.com/golang/mock v1.4.3
+	github.com/golang/mock v1.4.4
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mcuadros/go-version v0.0.0-20190830083331-035f6764e8d2
 	github.com/sirupsen/logrus v1.6.0
