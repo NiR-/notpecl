@@ -9,7 +9,7 @@ require (
 	github.com/mcuadros/go-version v0.0.0-20190830083331-035f6764e8d2
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.7
-	github.com/twpayne/go-vfs v1.4.2
+	github.com/twpayne/go-vfs v1.7.2
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/text v0.3.3
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
