@@ -7,7 +7,7 @@ require (
 	github.com/golang/mock v1.4.3
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mcuadros/go-version v0.0.0-20190830083331-035f6764e8d2
-	github.com/sirupsen/logrus v1.6.0
+	github.com/sirupsen/logrus v1.7.1
 	github.com/spf13/cobra v0.0.7
 	github.com/twpayne/go-vfs v1.4.2
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
